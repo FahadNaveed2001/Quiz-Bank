@@ -22,7 +22,7 @@ const sendVerificationEmail = async (email, token) => {
     <div style="font-family: Arial, sans-serif; padding: 20px;">
         <h2 style="color: #333;">Hello,</h2>
         <p style="font-size: 16px;">Welcome to Quiz Bank! Please verify your email address by clicking the following button:</p>
-        <a href="http://localhost:8000/verify-email?token=${token}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px; font-size: 16px;">Verify Email</a>
+        <a href="http://165.232.134.133:3000/verify-email?token=${token}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px; font-size: 16px;">Verify Email</a>
         <p style="font-size: 14px; color: #777;">If you didn't create an account with Quiz Bank, you can safely ignore this email.</p>
         <p style="font-size: 14px; color: #777;">Thanks,<br/>From Team Quiz Bank</p>
     </div>
@@ -40,48 +40,44 @@ const generateVerificationToken = () => {
 };
 
 const userSignup = async (User, req, res) => {
-    try {
+  try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ error: true, errors: errors.array() });
+          return res.status(400).json({ error: true, errors: errors.array() });
       }
-  
+
       const { firstName, lastName, email, password } = req.body;
-        let existingUser = await User.findOne({ email });
-  
+      let existingUser = await User.findOne({ email });
+
       if (existingUser) {
-        if (existingUser.isVerified) {
-          return res.status(400).json({ error: true, message: "User with this email already exists and is verified." });
-
-        } else {
-          const verificationToken = generateVerificationToken();
-          existingUser.verificationToken = verificationToken;
-          await existingUser.save();
-          await sendVerificationEmail(email, verificationToken);
-          return res.status(200).json({ success: true, message: "Verification token Sent Again. Please verify your email." });
-
-        }
+          if (!existingUser.isEmailVerified) {
+              return res.status(400).json({ error: true, message: "Email not verified. Please check your email for verification instructions." });
+          }
+          return res.status(400).json({ error: true, message: "User with this email already exists." });
       }
-  
+
       const verificationToken = generateVerificationToken();
       const hashedPassword = await bcrypt.hash(password, 10);
       const user = new User({
-        firstName,
-        lastName,
-        email,
-        password: hashedPassword,
-        verificationToken,
+          firstName,
+          lastName,
+          email,
+          password: hashedPassword,
+          verificationToken,
+          lastVerificationEmailSent: new Date()
       });
       await user.save();
       await sendVerificationEmail(email, verificationToken);
-      res.status(200).json({ success: true, message: "User created successfully Check Your Mail" });
-      console.log("User created successfully");
-      console.log(user);
-    } catch (error) {
-      res.status(400).send(error);
-      console.log("Error Creating User");
-      console.error(error);
-    }
-  };
+      return res.status(200).json({ success: true, message: "User created successfully. Check your email for verification." });
+
+  } catch (error) {
+      console.log("Error Creating User:", error);
+      return res.status(500).json({ error: true, message: "Internal server error" });
+  }
+};
+
+
 
 module.exports = { userSignup };
+
+
