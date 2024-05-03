@@ -30,7 +30,7 @@ const forgotPassword = async (User, jwt, nodemailer, req, res) => {
                   <h2 style="color: #333;">Reset Your Password</h2>
                   <p style="font-size: 16px;">Hello!</p>
                   <p style="font-size: 16px;">You recently requested to reset your password. Click the button below to reset it:</p>
-                  <a href="http://localhost:3000/forget-password/${user._id}/${token}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px; font-size: 16px;">Reset Password</a>
+                  <a href="http://165.232.134.133:3000/forget-password/${user._id}/${token}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px; font-size: 16px;">Reset Password</a>
                   <p style="font-size: 14px; color: #777;">If you didn't request this, you can safely ignore this email.</p>
                   <p style="font-size: 14px; color: #777;">Thank you,<br/>From Quiz Bank Team</p>
               </div>

@@ -9,7 +9,7 @@ const verifyEmail = async (User, req, res) => {
       user.isEmailVerified = true;
       user.verificationToken = undefined;
       await user.save();
-      const redirectURL = "http://localhost:3000/login?emailVerified=true";
+      const redirectURL = "http://165.232.134.133:3000/login?emailVerified=true";
       res.redirect(302, redirectURL);
       console.log("Email verified successfully");
 

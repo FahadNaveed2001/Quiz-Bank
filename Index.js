@@ -20,6 +20,7 @@ const { addCommentToMCQ } = require("./mcqroutes/commentroutes/addcomment");
 const {
   getMCQsWithComments,
 } = require("./mcqroutes/submcqroutes/mcqwithcomment");
+const { verifyEmail } = require("./userroutes/emailverification");
 const { deleteMCQ } = require("./mcqroutes/deletemcq");
 const { deleteQuiz } = require("./userroutes/quizroutes/deletequiz");
 const { saveQuizzes } = require("./userroutes/quizroutes/addquiz");
@@ -27,7 +28,6 @@ const { getUserQuizzes } = require("./userroutes/quizroutes/userquiz");
 const { getLatestQuiz } = require("./userroutes/quizroutes/latestquiz");
 const { userSignup } = require("./userroutes/usersignup");
 const { userLogin } = require("./userroutes/userlogin");
-const { verifyEmail } = require("./userroutes/emailverification");
 const { getUsers } = require("./userroutes/getusers");
 const { forgotPassword } = require("./userroutes/forgotpassword");
 const {
