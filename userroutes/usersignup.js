@@ -15,7 +15,7 @@ const sendVerificationEmail = async (email, token) => {
   });
 
   const mailOptions = {
-    from: process.env.TRANSPORTER_EMAIL,
+    from: `"Quiz Bank" <${process.env.TRANSPORTER_EMAIL}>`,
     to: email,
     subject: "Email Verification",
     html: `

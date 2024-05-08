@@ -3,7 +3,7 @@ const getLatestQuiz = async (User, req, res) => {
       const { userId } = req.params;
 
       const user = await User.findById(userId, {
-          attemptedQuizzes: { $slice: -1 }, // Get only the latest attempted quiz
+          attemptedQuizzes: { $slice: -1 }, 
       }).populate({
           path: "attemptedQuizzes.questions.questionId",
           model: "Q/A-MCQ",

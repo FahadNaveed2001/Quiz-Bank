@@ -3,9 +3,9 @@ const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
 const path = require("path");
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
-const bcrypt = require('bcrypt');
+const bcrypt = require("bcrypt");
 
 //files imports
 const connectDB = require("./config/mongoconnection");
@@ -98,6 +98,39 @@ app.get("/user-quizzes/:userId", async (req, res) => {
 app.get("/latest-quiz/:userId", async (req, res) => {
   getLatestQuiz(User, req, res);
 });
+
+
+app.get("/user-quiz/:userId/:quizId", async (req, res) => {
+  try {
+    const { userId, quizId } = req.params;
+    const user = await User.findById(userId).populate({
+      path: "attemptedQuizzes.questions.questionId",
+      model: "Q/A-MCQ",
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: true, message: "User not found." });
+    }
+    const quiz = user.attemptedQuizzes.find(quiz => quiz._id.toString() === quizId);
+    if (!quiz) {
+      return res.status(404).json({ error: true, message: "Quiz not found for the user." });
+    }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Quiz retrieved successfully",
+      data: quiz,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error retrieving quiz",
+      errorMessage: error.message,
+    });
+  }
+});
+
 
 app.post(
   "/user-signup",
