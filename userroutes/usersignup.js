@@ -15,7 +15,7 @@ const sendVerificationEmail = async (email, token) => {
   });
 
   const mailOptions = {
-    from: `"Quiz Bank" <${process.env.TRANSPORTER_EMAIL}>`,
+    from: `"ZAP-70" <${process.env.TRANSPORTER_EMAIL}>`,
     to: email,
     subject: "Email Verification",
     html: `
@@ -24,7 +24,7 @@ const sendVerificationEmail = async (email, token) => {
         <p style="font-size: 16px;">Welcome to Quiz Bank! Please verify your email address by clicking the following button:</p>
         <a href="http://165.232.134.133:3000/verify-email?token=${token}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px; font-size: 16px;">Verify Email</a>
         <p style="font-size: 14px; color: #777;">If you didn't create an account with Quiz Bank, you can safely ignore this email.</p>
-        <p style="font-size: 14px; color: #777;">Thanks,<br/>From Team Quiz Bank</p>
+        <p style="font-size: 14px; color: #777;">Thanks,<br/>From Team ZAP-70</p>
     </div>
 `,
   };

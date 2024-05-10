@@ -99,7 +99,6 @@ app.get("/latest-quiz/:userId", async (req, res) => {
   getLatestQuiz(User, req, res);
 });
 
-
 app.get("/user-quiz/:userId/:quizId", async (req, res) => {
   try {
     const { userId, quizId } = req.params;
@@ -107,13 +106,17 @@ app.get("/user-quiz/:userId/:quizId", async (req, res) => {
       path: "attemptedQuizzes.questions.questionId",
       model: "Q/A-MCQ",
     });
-    
+
     if (!user) {
       return res.status(404).json({ error: true, message: "User not found." });
     }
-    const quiz = user.attemptedQuizzes.find(quiz => quiz._id.toString() === quizId);
+    const quiz = user.attemptedQuizzes.find(
+      (quiz) => quiz._id.toString() === quizId
+    );
     if (!quiz) {
-      return res.status(404).json({ error: true, message: "Quiz not found for the user." });
+      return res
+        .status(404)
+        .json({ error: true, message: "Quiz not found for the user." });
     }
     res.status(200).json({
       status: "success",
@@ -127,6 +130,43 @@ app.get("/user-quiz/:userId/:quizId", async (req, res) => {
       error: true,
       message: "Error retrieving quiz",
       errorMessage: error.message,
+    });
+  }
+});
+
+app.get("/user-attempted-questions/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const user = await User.findById(userId).populate({
+      path: "attemptedQuizzes.questions.questionId",
+      model: "Q/A-MCQ" 
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: true, message: "User not found." });
+    }
+
+    const attemptedQuestions = user.attemptedQuizzes.reduce((allQuestions, quiz) => {
+      return allQuestions.concat(quiz.questions.map(question => {
+        return {
+          question: question.questionId,
+          selectedOption: question.selectedOption  
+        };
+      }));
+    }, []);
+
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "User Attempted Questions",
+      data: attemptedQuestions
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error retrieving attempted questions",
+      errorMessage: error.message
     });
   }
 });

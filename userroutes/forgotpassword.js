@@ -22,7 +22,7 @@ const forgotPassword = async (User, jwt, nodemailer, req, res) => {
       });
 
       const mailOptions = {
-          from: `"Quiz Bank" <${process.env.TRANSPORTER_EMAIL}>`,
+          from: `"ZAP-70" <${process.env.TRANSPORTER_EMAIL}>`,
           to: email,
           subject: "Reset Your Password",
           html: `
@@ -32,7 +32,7 @@ const forgotPassword = async (User, jwt, nodemailer, req, res) => {
                   <p style="font-size: 16px;">You recently requested to reset your password. Click the button below to reset it:</p>
                   <a href="http://165.232.134.133:8000/forget-password/${user._id}/${token}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px; font-size: 16px;">Reset Password</a>
                   <p style="font-size: 14px; color: #777;">If you didn't request this, you can safely ignore this email.</p>
-                  <p style="font-size: 14px; color: #777;">Thank you,<br/>From Quiz Bank Team</p>
+                  <p style="font-size: 14px; color: #777;">Thank you,<br/>From Quiz ZAP-70</p>
               </div>
           `,
       };

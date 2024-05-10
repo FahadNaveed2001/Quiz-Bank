@@ -55,11 +55,11 @@ const userSchema = new mongoose.Schema({
       },
       usmleSteps: {
         type: Number,
-        required: true,
+        required: false,
       },
       USMLE: {
         type: String,
-        required: true,
+        required: false,
       },
     },
   ],
