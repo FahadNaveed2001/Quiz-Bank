@@ -389,6 +389,272 @@ app.post("/reset-password/:id/:token", async (req, res) => {
   }
 });
 
+app.post("/add-feedback/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, text, school, rating, feedbackCreatedAt } = req.body;
+    if (!name || !text || !school || !rating) {
+      return res.status(400).json({
+        error: true,
+        message: "Name, text, school, and rating are required fields.",
+      });
+    }
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: true, message: "User not found." });
+    }
+
+    user.feedbacks.push({ name, text, school, rating, feedbackCreatedAt });
+    await user.save();
+
+    res.status(201).json({
+      status: "success",
+      success: true,
+      message: "Feedback added successfully.",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while adding feedback.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+app.get("/feedbacks", async (req, res) => {
+  try {
+    const usersWithFeedbacks = await User.find({ feedbacks: { $exists: true, $ne: [] } }, { _id: 1, feedbacks: 1 });
+    const lastFeedbacksByUser = await Promise.all(
+      usersWithFeedbacks.map(async (user) => {
+        const userDetails = await User.findById(user._id, {
+          firstName: 1,
+          email: 1,
+        });
+        const lastFeedbackIndex = user.feedbacks.length - 1;
+        const lastFeedback = user.feedbacks[lastFeedbackIndex];
+        return {
+          userId: user._id,
+          email: userDetails.email,
+          lastFeedback,
+        };
+      })
+    );
+    if (lastFeedbacksByUser.length === 0) {
+      return res.status(200).json({
+        status: "success",
+        success: true,
+        message: "No feedbacks found.",
+        data: [],
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Last added feedbacks retrieved successfully",
+      data: lastFeedbacksByUser,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while retrieving feedbacks",
+      errorMessage: error.message,
+    });
+  }
+});
+
+
+
+app.delete("/feedback/:feedbackId", async (req, res) => {
+  try {
+    const { feedbackId } = req.params;
+    const user = await User.findOne({ "feedbacks._id": feedbackId });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ error: true, message: "Feedback not found." });
+    }
+    const feedbackIndex = user.feedbacks.findIndex(
+      (feedback) => feedback._id == feedbackId
+    );
+    if (feedbackIndex === -1) {
+      return res
+        .status(404)
+        .json({ error: true, message: "Feedback not found." });
+    }
+    user.feedbacks.splice(feedbackIndex, 1);
+    await user.save();
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Feedback deleted successfully.",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while deleting feedback.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+app.put("/edit-feedback/:feedbackId", async (req, res) => {
+  try {
+    const { feedbackId } = req.params;
+    const { name, text, rating, school } = req.body;
+    if (!name || !text || !rating || !school) {
+      return res.status(400).json({
+        error: true,
+        message: "Name, text, rating, and school are required fields.",
+      });
+    }
+    const user = await User.findOneAndUpdate(
+      { "feedbacks._id": feedbackId },
+      {
+        $set: {
+          "feedbacks.$.name": name,
+          "feedbacks.$.text": text,
+          "feedbacks.$.rating": rating,
+          "feedbacks.$.school": school,
+        },
+      },
+      { new: true }
+    );
+    if (!user) {
+      return res
+        .status(404)
+        .json({ error: true, message: "Feedback not found." });
+    }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Feedback updated successfully.",
+      data: user,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while updating feedback.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+app.get("/feedback/:feedbackId", async (req, res) => {
+  try {
+    const { feedbackId } = req.params;
+    const user = await User.findOne({ "feedbacks._id": feedbackId });
+    if (!user) {
+      return res.status(404).json({ error: true, message: "User not found." });
+    }
+    const feedback = user.feedbacks.find(
+      (feedback) => feedback._id.toString() === feedbackId
+    );
+    if (!feedback) {
+      return res
+        .status(404)
+        .json({ error: true, message: "Feedback not found." });
+    }
+
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Feedback retrieved successfully.",
+      data: feedback,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while retrieving feedback.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+// Define a route to fetch feedbacks for certain users
+app.get("/user-feedbacks/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+        const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: true, message: "User not found." });
+    }
+    const feedbacks = user.feedbacks;
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Feedbacks retrieved successfully",
+      data: feedbacks,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while retrieving feedbacks",
+      errorMessage: error.message,
+    });
+  }
+});
+
+// Define a route to fetch all feedbacks of every user
+app.get("/all-feedbacks", async (req, res) => {
+  try {
+    // Retrieve all users from the database
+    const users = await User.find();
+
+    // Array to store all feedbacks
+    const allFeedbacks = [];
+
+    // Iterate over each user
+    for (const user of users) {
+      // Extract user details
+      const userDetails = {
+        userId: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      };
+
+      // Iterate over each feedback of the user
+      for (const feedback of user.feedbacks) {
+        // Construct feedback object including user details
+        const feedbackData = {
+          ...userDetails,
+          feedbackId: feedback._id,
+          name: feedback.name,
+          text: feedback.text,
+          school: feedback.school,
+          rating: feedback.rating,
+          feedbackCreatedAt: feedback.feedbackCreatedAt,
+        };
+
+        // Push feedback data to allFeedbacks array
+        allFeedbacks.push(feedbackData);
+      }
+    }
+
+    // Return the feedbacks as a response
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "All feedbacks retrieved successfully",
+      data: allFeedbacks,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while retrieving feedbacks",
+      errorMessage: error.message,
+    });
+  }
+});
+
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
