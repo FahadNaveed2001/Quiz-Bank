@@ -6,6 +6,7 @@ const path = require("path");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcrypt");
+const fs = require("fs");
 
 //files imports
 const connectDB = require("./config/mongoconnection");
@@ -36,6 +37,7 @@ const {
 } = require("./middlewares/authmiddleware");
 
 const storage = require("./config/storageconfig");
+// const { deleteMCQImage } = require("./mcqroutes/deletemcqimage");
 
 //app and port
 const app = express();
@@ -139,39 +141,123 @@ app.get("/user-attempted-questions/:userId", async (req, res) => {
     const userId = req.params.userId;
     const user = await User.findById(userId).populate({
       path: "attemptedQuizzes.questions.questionId",
-      model: "Q/A-MCQ" 
+      model: "Q/A-MCQ",
     });
 
     if (!user) {
       return res.status(404).json({ error: true, message: "User not found." });
     }
 
-    const attemptedQuestions = user.attemptedQuizzes.reduce((allQuestions, quiz) => {
-      return allQuestions.concat(quiz.questions.map(question => {
-        return {
-          question: question.questionId,
-          selectedOption: question.selectedOption  
-        };
-      }));
-    }, []);
+    const attemptedQuestions = user.attemptedQuizzes.reduce(
+      (allQuestions, quiz) => {
+        return allQuestions.concat(
+          quiz.questions.map((question) => {
+            return {
+              question: question.questionId,
+              selectedOption: question.selectedOption,
+            };
+          })
+        );
+      },
+      []
+    );
 
     res.status(200).json({
       status: "success",
       success: true,
       message: "User Attempted Questions",
-      data: attemptedQuestions
+      data: attemptedQuestions,
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       error: true,
       message: "Error retrieving attempted questions",
-      errorMessage: error.message
+      errorMessage: error.message,
     });
   }
 });
 
+////////////////////////////////////////////////////////////////////////
+const deleteImage = (filename) => {
+  const imagePath = path.join(__dirname, "uploads", filename);
+  fs.unlink(imagePath, (err) => {
+    if (err) {
+      console.error("Error deleting image:", err);
+    } else {
+      console.log("Image deleted successfully.");
+    }
+  });
+};
 
+app.delete("/mcq/:id/image", async (req, res) => {
+  try {
+    const mcqId = req.params.id;
+    const mcq = await MCQ.findById(mcqId);
+    if (!mcq) {
+      return res.status(404).json({ error: true, message: "MCQ not found." });
+    }
+    if (!mcq.image) {
+      return res
+        .status(400)
+        .json({ error: true, message: "MCQ does not have an image." });
+    }
+    deleteImage(mcq.image);
+    mcq.image = null;
+    await mcq.save();
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Image deleted successfully from MCQ.",
+      data: mcq,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while deleting image from MCQ.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+// app.get("/attempted-questions", async (req, res) => {
+//   try {
+//     const users = await User.find();
+//     const allAttemptedQuestions = [];
+//     for (const user of users) {
+//       const attemptedQuestions = user.attemptedQuizzes.reduce(
+//         (allQuestions, quiz) => {
+//           return allQuestions.concat(
+//             quiz.questions.map((question) => {
+//               return {
+//                 questionId: question.questionId,
+//                 selectedOption: question.selectedOption,
+//               };
+//             })
+//           );
+//         },
+//         []
+//       );
+//       allAttemptedQuestions.push(...attemptedQuestions);
+//     }
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Attempted questions by every user",
+//       data: allAttemptedQuestions,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       error: true,
+//       message: "Error retrieving attempted questions by every user",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 app.post(
   "/user-signup",
   [
