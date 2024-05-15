@@ -65,8 +65,14 @@ connectDB();
 app.use(express.json());
 app.use(cors());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use("/uploads/images", express.static(path.join(__dirname, "uploads", "images")));
-app.use("/uploads/videos", express.static(path.join(__dirname, "uploads", "videos")));
+app.use(
+  "/uploads/images",
+  express.static(path.join(__dirname, "uploads", "images"))
+);
+app.use(
+  "/uploads/videos",
+  express.static(path.join(__dirname, "uploads", "videos"))
+);
 
 //Jwt Secret
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
@@ -107,73 +113,80 @@ app.get("/mcq/:mcqId", getMCQById);
 app.post("/add-comment/:mcqId", addCommentToMCQ);
 app.get("/mcqs-with-comments", getMCQsWithComments);
 app.delete("/delete-mcq/:mcqId", deleteMCQ);
-app.put("/edit-mcqs/:mcqId", upload.fields([{ name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
-  const { mcqId } = req.params;
-  try {
-    const mcqToUpdate = await MCQ.findById(mcqId);
+app.put(
+  "/edit-mcqs/:mcqId",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "video", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    const { mcqId } = req.params;
+    try {
+      const mcqToUpdate = await MCQ.findById(mcqId);
 
-    if (!mcqToUpdate) {
-      return res.status(404).json({ error: true, message: "MCQ not found." });
-    }
-    const {
-      usmleStep,
-      USMLE,
-      question,
-      optionOne,
-      optionTwo,
-      optionThree,
-      optionFour,
-      optionFive,
-      optionSix,
-      correctAnswer,
-      questionExplanation,
-      optionOneExplanation,
-      optionTwoExplanation,
-      optionThreeExplanation,
-      optionFourExplanation,
-      optionFiveExplanation,
-      optionSixExplanation,
-    } = req.body;
-    mcqToUpdate.usmleStep = usmleStep;
-    mcqToUpdate.USMLE = USMLE;
-    mcqToUpdate.question = question;
-    mcqToUpdate.optionOne = optionOne;
-    mcqToUpdate.optionTwo = optionTwo;
-    mcqToUpdate.optionThree = optionThree;
-    mcqToUpdate.optionFour = optionFour;
-    mcqToUpdate.optionFive = optionFive;
-    mcqToUpdate.optionSix = optionSix;
-    mcqToUpdate.correctAnswer = correctAnswer;
-    mcqToUpdate.questionExplanation = questionExplanation;
-    mcqToUpdate.optionOneExplanation = optionOneExplanation;
-    mcqToUpdate.optionTwoExplanation = optionTwoExplanation;
-    mcqToUpdate.optionThreeExplanation = optionThreeExplanation;
-    mcqToUpdate.optionFourExplanation = optionFourExplanation;
-    mcqToUpdate.optionFiveExplanation = optionFiveExplanation;
-    mcqToUpdate.optionSixExplanation = optionSixExplanation;
+      if (!mcqToUpdate) {
+        return res.status(404).json({ error: true, message: "MCQ not found." });
+      }
+      const {
+        usmleStep,
+        USMLE,
+        question,
+        optionOne,
+        optionTwo,
+        optionThree,
+        optionFour,
+        optionFive,
+        optionSix,
+        correctAnswer,
+        questionExplanation,
+        optionOneExplanation,
+        optionTwoExplanation,
+        optionThreeExplanation,
+        optionFourExplanation,
+        optionFiveExplanation,
+        optionSixExplanation,
+      } = req.body;
+      mcqToUpdate.usmleStep = usmleStep;
+      mcqToUpdate.USMLE = USMLE;
+      mcqToUpdate.question = question;
+      mcqToUpdate.optionOne = optionOne;
+      mcqToUpdate.optionTwo = optionTwo;
+      mcqToUpdate.optionThree = optionThree;
+      mcqToUpdate.optionFour = optionFour;
+      mcqToUpdate.optionFive = optionFive;
+      mcqToUpdate.optionSix = optionSix;
+      mcqToUpdate.correctAnswer = correctAnswer;
+      mcqToUpdate.questionExplanation = questionExplanation;
+      mcqToUpdate.optionOneExplanation = optionOneExplanation;
+      mcqToUpdate.optionTwoExplanation = optionTwoExplanation;
+      mcqToUpdate.optionThreeExplanation = optionThreeExplanation;
+      mcqToUpdate.optionFourExplanation = optionFourExplanation;
+      mcqToUpdate.optionFiveExplanation = optionFiveExplanation;
+      mcqToUpdate.optionSixExplanation = optionSixExplanation;
 
-    if (req.files['image']) {
-      mcqToUpdate.image = req.files['image'][0].filename;
+      if (req.files["image"]) {
+        mcqToUpdate.image = req.files["image"][0].filename;
+      }
+      if (req.files["video"]) {
+        mcqToUpdate.video = req.files["video"][0].filename;
+      }
+      const updatedMCQ = await mcqToUpdate.save();
+      res.status(200).json({
+        status: "success",
+        success: true,
+        message: "MCQ updated successfully",
+        data: updatedMCQ,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({
+        error: true,
+        message: "Error Updating MCQ",
+        errorMessage: error.message,
+      });
     }
-    if (req.files['video']) {
-      mcqToUpdate.video = req.files['video'][0].filename;
-    }
-    const updatedMCQ = await mcqToUpdate.save();
-    res.status(200).json({
-      status: "success",
-      success: true,
-      message: "MCQ updated successfully",
-      data: updatedMCQ,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      error: true,
-      message: "Error Updating MCQ",
-      errorMessage: error.message,
-    });
   }
-});
+);
 app.delete("/mcq/:id/image", async (req, res) => {
   try {
     const mcqId = req.params.id;
@@ -222,7 +235,9 @@ app.delete("/mcq/:id/video", async (req, res) => {
       return res.status(404).json({ error: true, message: "MCQ not found." });
     }
     if (!mcq.video) {
-      return res.status(400).json({ error: true, message: "MCQ does not have a video." });
+      return res
+        .status(400)
+        .json({ error: true, message: "MCQ does not have a video." });
     }
     deleteVideo(mcq.video);
     mcq.video = null;
@@ -244,7 +259,7 @@ app.delete("/mcq/:id/video", async (req, res) => {
 });
 const deleteVideo = (filename) => {
   const videoPath = path.join(__dirname, "uploads", "videos", filename);
-  
+
   fs.unlink(videoPath, (err) => {
     if (err) {
       console.error("Error deleting video:", err);
@@ -253,7 +268,6 @@ const deleteVideo = (filename) => {
     }
   });
 };
-
 
 //quiz routes
 app.delete("/delete-quiz/:userId/:quizId", (req, res) => {
@@ -302,6 +316,7 @@ app.get("/user-quiz/:userId/:quizId", async (req, res) => {
     });
   }
 });
+
 app.get("/user-attempted-questions/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -309,20 +324,32 @@ app.get("/user-attempted-questions/:userId", async (req, res) => {
       path: "attemptedQuizzes.questions.questionId",
       model: "Q/A-MCQ",
     });
-
     if (!user) {
       return res.status(404).json({ error: true, message: "User not found." });
     }
-
     const attemptedQuestions = user.attemptedQuizzes.reduce(
       (allQuestions, quiz) => {
         return allQuestions.concat(
-          quiz.questions.map((question) => {
-            return {
-              question: question.questionId,
-              selectedOption: question.selectedOption,
-            };
-          })
+          quiz.questions
+            .map((question) => {
+              if (
+                question &&
+                question.questionId &&
+                !question.questionId.deleted
+              ) {
+                const selectedOption = question.selectedOption;
+                const correctAnswer = question.questionId.correctAnswer;
+                const isCorrect = selectedOption === correctAnswer;
+                return {
+                  question: question.questionId,
+                  selectedOption: selectedOption,
+                  isCorrect: isCorrect,
+                };
+              } else {
+                return null; 
+              }
+            })
+            .filter((question) => question !== null) 
         );
       },
       []
@@ -343,6 +370,51 @@ app.get("/user-attempted-questions/:userId", async (req, res) => {
     });
   }
 });
+
+
+// app.get("/unattempted-questions/:userId", async (req, res) => {
+//   try {
+//     const userId = req.params.userId;
+//     const user = await User.findById(userId).populate({
+//       path: "attemptedQuizzes.questions.questionId",
+//       model: "Q/A-MCQ",
+//     });
+//     if (!user) {
+//       return res.status(404).json({ error: true, message: "User not found." });
+//     }
+    
+//     const allMCQs = await MCQ.find(); // Get all MCQs from the database
+
+//     const attemptedQuestionIds = user.attemptedQuizzes.reduce(
+//       (allQuestions, quiz) => {
+//         return allQuestions.concat(
+//           quiz.questions.map((question) => question.questionId)
+//         );
+//       },
+//       []
+//     );
+
+//     // Filter out the unattempted questions
+//     const unattemptedQuestions = allMCQs.filter((mcq) => {
+//       return !attemptedQuestionIds.includes(mcq._id);
+//     });
+
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Unattempted questions by the user",
+//       data: unattemptedQuestions,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       error: true,
+//       message: "Error retrieving unattempted questions",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
+
 
 //user routes
 app.post(
@@ -433,8 +505,6 @@ app.get("/others-feedbacks/:userId", async (req, res) => {
     const { userId } = req.params;
     const usersExceptCurrent = await User.find({ _id: { $ne: userId } });
     const allFeedbacksExceptCurrent = [];
-
-    // Iterate through each user and extract their feedbacks
     for (const user of usersExceptCurrent) {
       for (const feedback of user.feedbacks) {
         const feedbackData = {
@@ -450,8 +520,6 @@ app.get("/others-feedbacks/:userId", async (req, res) => {
         allFeedbacksExceptCurrent.push(feedbackData);
       }
     }
-
-    // Respond with all feedbacks except those belonging to the specified user
     res.status(200).json({
       status: "success",
       success: true,
