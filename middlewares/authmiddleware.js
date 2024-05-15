@@ -23,6 +23,7 @@ const routesWithoutToken = [
   "/verify-email",
   "/user-signup",
   "/reset-password/:id/:token",
+  "/attempted-questions",
 ];
 
 module.exports = { verifyToken, routesWithoutToken };

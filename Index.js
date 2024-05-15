@@ -65,6 +65,8 @@ connectDB();
 app.use(express.json());
 app.use(cors());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads/images", express.static(path.join(__dirname, "uploads", "images")));
+app.use("/uploads/videos", express.static(path.join(__dirname, "uploads", "videos")));
 
 //Jwt Secret
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
@@ -92,13 +94,20 @@ app.get("/", (req, res) => {
 const upload = multer({ storage: storage });
 
 //mcq routes
-app.post("/add-mcqs", upload.single("image"), addMCQ);
+app.post(
+  "/add-mcqs",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "video", maxCount: 1 },
+  ]),
+  addMCQ
+);
 app.get("/mcqs", getMCQs);
 app.get("/mcq/:mcqId", getMCQById);
 app.post("/add-comment/:mcqId", addCommentToMCQ);
 app.get("/mcqs-with-comments", getMCQsWithComments);
 app.delete("/delete-mcq/:mcqId", deleteMCQ);
-app.put("/edit-mcqs/:mcqId", upload.single("image"), async (req, res) => {
+app.put("/edit-mcqs/:mcqId", upload.fields([{ name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }]), async (req, res) => {
   const { mcqId } = req.params;
   try {
     const mcqToUpdate = await MCQ.findById(mcqId);
@@ -143,8 +152,11 @@ app.put("/edit-mcqs/:mcqId", upload.single("image"), async (req, res) => {
     mcqToUpdate.optionFiveExplanation = optionFiveExplanation;
     mcqToUpdate.optionSixExplanation = optionSixExplanation;
 
-    if (req.file) {
-      mcqToUpdate.image = req.file.filename;
+    if (req.files['image']) {
+      mcqToUpdate.image = req.files['image'][0].filename;
+    }
+    if (req.files['video']) {
+      mcqToUpdate.video = req.files['video'][0].filename;
     }
     const updatedMCQ = await mcqToUpdate.save();
     res.status(200).json({
@@ -202,6 +214,46 @@ const deleteImage = (filename) => {
     }
   });
 };
+app.delete("/mcq/:id/video", async (req, res) => {
+  try {
+    const mcqId = req.params.id;
+    const mcq = await MCQ.findById(mcqId);
+    if (!mcq) {
+      return res.status(404).json({ error: true, message: "MCQ not found." });
+    }
+    if (!mcq.video) {
+      return res.status(400).json({ error: true, message: "MCQ does not have a video." });
+    }
+    deleteVideo(mcq.video);
+    mcq.video = null;
+    await mcq.save();
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Video deleted successfully from MCQ.",
+      data: mcq,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while deleting video from MCQ.",
+      errorMessage: error.message,
+    });
+  }
+});
+const deleteVideo = (filename) => {
+  const videoPath = path.join(__dirname, "uploads", "videos", filename);
+  
+  fs.unlink(videoPath, (err) => {
+    if (err) {
+      console.error("Error deleting video:", err);
+    } else {
+      console.log("Video deleted successfully.");
+    }
+  });
+};
+
 
 //quiz routes
 app.delete("/delete-quiz/:userId/:quizId", (req, res) => {
@@ -457,4 +509,3 @@ app.get("/attempted-questions", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-

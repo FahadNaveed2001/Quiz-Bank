@@ -41,9 +41,7 @@ const mcqSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  image: {
-    type: String,
-  },
+
   questionExplanation: {
     type: String,
     required: true,
@@ -84,6 +82,12 @@ const mcqSchema = new mongoose.Schema({
       },
     },
   ],
+  image: {
+    type: String,
+  },
+  video: {
+    type: String, 
+  },
 });
 
 const MCQ = mongoose.model("Q/A-MCQ", mcqSchema);
