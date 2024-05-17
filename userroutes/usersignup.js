@@ -22,7 +22,7 @@ const sendVerificationEmail = async (email, token) => {
     <div style="font-family: Arial, sans-serif; padding: 20px;">
         <h2 style="color: #333;">Hello,</h2>
         <p style="font-size: 16px;">Welcome to ZAP-70! Please verify your email address by clicking the following button:</p>
-        <a href="http://165.232.134.133:3000/verify-email?token=${token}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px; font-size: 16px;">Verify Email</a>
+        <a href="https://api.zap70.com/verify-email?token=${token}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 5px; font-size: 16px;">Verify Email</a>
         <p style="font-size: 14px; color: #777;">If you didn't create an account with ZAP-70, you can safely ignore this email.</p>
         <p style="font-size: 14px; color: #777;">Thanks,<br/>From Team ZAP-70</p>
     </div>
