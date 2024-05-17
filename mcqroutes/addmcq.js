@@ -5,7 +5,6 @@ const addMCQ = async (req, res) => {
     let imageName = null;
     let videoName = null;
 
-    // Check if image or video file is present in the request
     if (req.files) {
       const files = req.files;
       if (files.image) {
@@ -16,7 +15,6 @@ const addMCQ = async (req, res) => {
       }
     }
 
-    // Destructure required fields from request body
     const {
       usmleStep,
       USMLE,
@@ -37,7 +35,6 @@ const addMCQ = async (req, res) => {
       optionSixExplanation,
     } = req.body;
 
-    // Create a new MCQ instance with the provided data
     const mcq = new MCQ({
       usmleStep,
       USMLE,
@@ -60,10 +57,8 @@ const addMCQ = async (req, res) => {
       video: videoName,
     });
 
-    // Save the MCQ to the database
     await mcq.save();
 
-    // Send success response with the saved MCQ data
     res.status(201).json({
       status: "success",
       success: true,

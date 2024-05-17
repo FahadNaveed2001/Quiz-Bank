@@ -346,10 +346,10 @@ app.get("/user-attempted-questions/:userId", async (req, res) => {
                   isCorrect: isCorrect,
                 };
               } else {
-                return null; 
+                return null;
               }
             })
-            .filter((question) => question !== null) 
+            .filter((question) => question !== null)
         );
       },
       []
@@ -371,7 +371,6 @@ app.get("/user-attempted-questions/:userId", async (req, res) => {
   }
 });
 
-
 // app.get("/unattempted-questions/:userId", async (req, res) => {
 //   try {
 //     const userId = req.params.userId;
@@ -382,7 +381,7 @@ app.get("/user-attempted-questions/:userId", async (req, res) => {
 //     if (!user) {
 //       return res.status(404).json({ error: true, message: "User not found." });
 //     }
-    
+
 //     const allMCQs = await MCQ.find(); // Get all MCQs from the database
 
 //     const attemptedQuestionIds = user.attemptedQuizzes.reduce(
@@ -414,7 +413,6 @@ app.get("/user-attempted-questions/:userId", async (req, res) => {
 //     });
 //   }
 // });
-
 
 //user routes
 app.post(
@@ -536,38 +534,119 @@ app.get("/others-feedbacks/:userId", async (req, res) => {
   }
 });
 
-//admin speacial routes
-app.get("/attempted-questions", async (req, res) => {
+app.get("/attempted-questions-analysis", async (req, res) => {
   try {
     const users = await User.find();
-    const allAttemptedQuestions = [];
+    const analysisResults = {};
+
     for (const user of users) {
-      const attemptedQuestions = user.attemptedQuizzes.reduce(
-        (allQuestions, quiz) => {
-          return allQuestions.concat(
-            quiz.questions.map((question) => {
-              return {
-                questionId: question.questionId,
-                selectedOption: question.selectedOption,
-              };
-            })
-          );
-        },
-        []
-      );
-      allAttemptedQuestions.push(...attemptedQuestions);
+      for (const quiz of user.attemptedQuizzes) {
+        for (const question of quiz.questions) {
+          const questionId = question.questionId.toString();
+          let questionAnalysis = analysisResults[questionId];
+          if (!questionAnalysis) {
+            const optionSelections = {};
+            const questionDetails = await MCQ.findById(questionId)
+              .select("-__v")
+              .lean();
+            if (questionDetails && questionDetails.options) {
+              for (const optionKey in questionDetails.options) {
+                optionSelections[questionDetails.options[optionKey]] = 0;
+              }
+            }
+            if (
+              question.selectedOption !== null &&
+              question.selectedOption !== undefined
+            ) {
+              optionSelections[question.selectedOption]++;
+            }
+            questionAnalysis = {
+              totalAttempts: 1,
+              questionDetails: questionDetails,
+              optionSelections: optionSelections,
+            };
+            analysisResults[questionId] = questionAnalysis;
+          } else {
+            questionAnalysis.totalAttempts++;
+            if (
+              question.selectedOption !== null &&
+              question.selectedOption !== undefined
+            ) {
+              questionAnalysis.optionSelections[question.selectedOption]++;
+            }
+          }
+        }
+      }
     }
+
     res.status(200).json({
       status: "success",
       success: true,
-      message: "Attempted questions by every user",
-      data: allAttemptedQuestions,
+      message: "Attempted questions analysis",
+      data: analysisResults,
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       error: true,
-      message: "Error retrieving attempted questions by every user",
+      message: "Error retrieving attempted questions analysis",
+      errorMessage: error.message,
+    });
+  }
+});
+
+app.get("/all-questions", async (req, res) => {
+  try {
+    const users = await User.find();
+    const allQuestions = users.reduce((questions, user) => {
+      const userQuestions = user.attemptedQuizzes.flatMap((quiz) =>
+        quiz.questions.map((question) => ({
+          questionId: question.questionId,
+          selectedOption: question.selectedOption,
+        }))
+      );
+      return questions.concat(userQuestions);
+    }, []);
+    const optionCount = allQuestions.reduce((count, question) => {
+      if (!count[question.questionId]) {
+        count[question.questionId] = {};
+      }
+      if (question.selectedOption !== "") {
+        count[question.questionId][question.selectedOption] =
+          (count[question.questionId][question.selectedOption] || 0) + 1;
+      }
+      return count;
+    }, []);
+
+    const questionsDetails = [];
+    for (const questionId of Object.keys(optionCount)) {
+      const question = await MCQ.findById(questionId);
+      if (question) {
+        const attempts = Object.values(optionCount[questionId]).reduce(
+          (total, count) => total + count,
+          0
+        );
+        questionsDetails.push({
+          questionId: question._id,
+          question: question.question,
+          optionsCount: optionCount[questionId],
+          attempts: attempts,
+          details: question,
+        });
+      }
+    }
+
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "All questions retrieved successfully",
+      data: questionsDetails,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while retrieving questions",
       errorMessage: error.message,
     });
   }
