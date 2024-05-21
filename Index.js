@@ -123,7 +123,7 @@ app.get("/", (req, res) => {
 //multer storage
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 100 * 1024 * 1024 },
+  limits: { fileSize: 524288000 },
 });
 
 //mcq routes
