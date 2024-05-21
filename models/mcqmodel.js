@@ -31,7 +31,7 @@ const mcqSchema = new mongoose.Schema({
   },
   optionFive: {
     type: String,
-    required: true,
+    required: false,
   },
   optionSix: {
     type: String,
@@ -48,23 +48,23 @@ const mcqSchema = new mongoose.Schema({
   },
   optionOneExplanation: {
     type: String,
-    required: true,
+    required: false,
   },
   optionTwoExplanation: {
     type: String,
-    required: true,
+    required: false,
   },
   optionThreeExplanation: {
     type: String,
-    required: true,
+    required: false,
   },
   optionFourExplanation: {
     type: String,
-    required: true,
+    required: false,
   },
   optionFiveExplanation: {
     type: String,
-    required: true,
+    required: false,
   },
   optionSixExplanation: {
     type: String,
@@ -83,6 +83,9 @@ const mcqSchema = new mongoose.Schema({
     },
   ],
   image: {
+    type: String,
+  },
+  image_1: {
     type: String,
   },
   video: {

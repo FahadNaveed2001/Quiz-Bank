@@ -8,6 +8,8 @@ const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcrypt");
 const fs = require("fs");
+// const excelToJson = require("convert-excel-to-json");
+const xlsx = require("xlsx");
 
 //files imports
 const connectDB = require("./config/mongoconnection");
@@ -62,21 +64,25 @@ const PORT = process.env.PORT || 8000;
 connectDB();
 
 //cors
-const corsOptions = {
-  origin: [
-    "*",
-    "https://zap70.com",
-    "http://localhost:3000",
-    "http://165.232.134.133:3000",
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true,
-};
+// const corsOptions = {
+//   origin: [
+//     "*",
+//     "https://zap70.com",
+//     "http://localhost:3000",
+//     "http://165.232.134.133:3000",
+//   ],
+//   methods: ["GET", "POST", "PUT", "DELETE"],
+//   allowedHeaders: ["Content-Type", "Authorization"],
+//   credentials: true,
+// };
 
-
-
-app.use(cors(corsOptions));
+// app.use(cors(corsOptions));
+app.use(
+  cors({
+    origin: "https://zap70.com",
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -289,18 +295,37 @@ const deleteVideo = (filename) => {
     }
   });
 };
+app.delete("/delete-multiple-mcqs", async (req, res) => {
+  try {
+    const { mcqIds } = req.body;
 
-const addExcel = (filename) => {
-  const excelpath = path.join(__dirname, "uploads", "excels", filename);
-
-  fs.unlink(excelpath, (err) => {
-    if (err) {
-      console.error("error while adding mcq", err);
-    } else {
-      console.log("mcq loaded succesfully");
+    if (!Array.isArray(mcqIds)) {
+      return res.status(400).json({
+        error: true,
+        message: "Invalid input, expected an array of MCQ IDs.",
+      });
     }
-  });
-};
+
+    const result = await MCQ.deleteMany({ _id: { $in: mcqIds } });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        error: true,
+        message: "No MCQs found with the provided IDs.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `${result.deletedCount} MCQs deleted successfully.`,
+    });
+    console.log(`${result.deletedCount} MCQs deleted successfully`);
+  } catch (error) {
+    res.status(500).json({ error: true, message: "Error Deleting MCQs" });
+    console.log("Error Deleting MCQs");
+    console.error(error);
+  }
+});
 
 //quiz routes
 app.delete("/delete-quiz/:userId/:quizId", (req, res) => {
@@ -680,6 +705,155 @@ app.get("/all-questions", async (req, res) => {
     res.status(500).json({
       error: true,
       message: "Internal server error while retrieving questions",
+      errorMessage: error.message,
+    });
+  }
+});
+
+//////////////////////////////////////////////////////////////////////
+function toLowerCaseKeys(obj) {
+  const lowercasedObj = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      lowercasedObj[key.toLowerCase()] = obj[key];
+    }
+  }
+  return lowercasedObj;
+}
+function convertOptions(data) {
+  const convertedData = { ...data };
+  convertedData.optionOne = convertedData["option a"];
+  convertedData.optionTwo = convertedData["option b"];
+  convertedData.optionThree = convertedData["option c"];
+  convertedData.optionFour = convertedData["option d"];
+  convertedData.optionFive = convertedData["option e"];
+  convertedData.optionSix = convertedData["option f"];
+  convertedData.optionOneExplanation = convertedData["option a explanation"];
+  convertedData.optionTwoExplanation = convertedData["option b explanation"];
+  convertedData.optionThreeExplanation = convertedData["option c explanation"];
+  convertedData.optionFourExplanation = convertedData["option d explanation"];
+  convertedData.optionFiveExplanation = convertedData["option e explanation"];
+  convertedData.optionSixExplanation = convertedData["option f explanation"];
+  if (convertedData.answer) {
+    const answerMapping = {
+      a: convertedData["option a"],
+      b: convertedData["option b"],
+      c: convertedData["option c"],
+      d: convertedData["option d"],
+      e: convertedData["option e"],
+      f: convertedData["option f"],
+    };
+    convertedData.correctAnswer =
+      answerMapping[convertedData.answer.toLowerCase()];
+    delete convertedData.answer;
+  }
+  delete convertedData["option a"];
+  delete convertedData["option b"];
+  delete convertedData["option c"];
+  delete convertedData["option d"];
+  delete convertedData["option e"];
+  delete convertedData["option f"];
+  delete convertedData["option a explanation"];
+  delete convertedData["option b explanation"];
+  delete convertedData["option c explanation"];
+  delete convertedData["option d explanation"];
+  delete convertedData["option e explanation"];
+  delete convertedData["option f explanation"];
+
+  return convertedData;
+}
+function ensureAllFieldsPresent(data) {
+  const fields = [
+    "usmleStep",
+    "USMLE",
+    "question",
+    "optionOne",
+    "optionTwo",
+    "optionThree",
+    "optionFour",
+    "optionFive",
+    "optionSix",
+    "correctAnswer",
+    "questionExplanation",
+    "optionOneExplanation",
+    "optionTwoExplanation",
+    "optionThreeExplanation",
+    "optionFourExplanation",
+    "optionFiveExplanation",
+    "optionSixExplanation",
+    "comments",
+    "image",
+    "image_1",
+    "video",
+  ];
+
+  fields.forEach((field) => {
+    if (!data.hasOwnProperty(field)) {
+      data[field] = null;
+    }
+  });
+
+  return data;
+}
+async function filterDuplicates(questions) {
+  const uniqueQuestions = [];
+  const duplicates = new Set();
+  for (let question of questions) {
+    const { USMLE, usmleStep, question: questionText } = question;
+    const existingQuestion = await MCQ.findOne({
+      USMLE,
+      usmleStep,
+      question: questionText,
+    });
+    if (!existingQuestion && !duplicates.has(questionText)) {
+      uniqueQuestions.push(question);
+      duplicates.add(questionText);
+    }
+  }
+  return uniqueQuestions;
+}
+app.post("/upload-questions", upload.single("file"), async (req, res) => {
+  try {
+    const {
+      file,
+      body: { USMLE, usmleStep },
+    } = req;
+    const inputFilePath = file.path;
+    const workbook = xlsx.readFile(inputFilePath);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const jsonData = xlsx.utils.sheet_to_json(sheet, { defval: null });
+    const questionsToSave = jsonData.map((data) => {
+      let convertedData = toLowerCaseKeys(data);
+      convertedData = convertOptions(convertedData);
+      if (!Array.isArray(convertedData.comments)) {
+        convertedData.comments = [];
+      }
+      convertedData.questionExplanation = convertedData.explanation;
+      delete convertedData.explanation;
+      convertedData.USMLE = USMLE;
+      convertedData.usmleStep = usmleStep;
+      return ensureAllFieldsPresent(convertedData);
+    });
+    const uniqueQuestions = await filterDuplicates(questionsToSave);
+    const savedQuestions = await MCQ.insertMany(uniqueQuestions);
+    fs.unlink(inputFilePath, (err) => {
+      if (err) {
+        console.error("Error deleting the file:", err);
+      }
+    });
+
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Questions uploaded and saved successfully.",
+      data: savedQuestions,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error uploading questions.",
       errorMessage: error.message,
     });
   }

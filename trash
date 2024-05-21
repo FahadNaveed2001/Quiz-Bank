@@ -1,0 +1,91 @@
+app.post("/filemcq", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        error: true,
+        message: "No file uploaded",
+      });
+    }
+
+    const filePath = path.join(__dirname, "uploads", req.file.filename);
+
+    const excelData = excelToJson({
+      sourceFile: filePath,
+      sheets: [
+        {
+          name: "Sheet1",
+          header: {
+            rows: 1,
+          },
+          columnToKey: {
+            A: "usmleStep",
+            B: "USMLE",
+            C: "question",
+            D: "optionOne",
+            E: "optionTwo",
+            F: "optionThree",
+            G: "optionFour",
+            H: "optionFive",
+            I: "optionSix",
+            J: "correctAnswer",
+            K: "questionExplanation",
+            L: "optionOneExplanation",
+            M: "optionTwoExplanation",
+            N: "optionThreeExplanation",
+            O: "optionFourExplanation",
+            P: "optionFiveExplanation",
+            Q: "optionSixExplanation",
+          },
+        },
+      ],
+    });
+
+    const mcqData = excelData.Sheet1.map((row) => ({
+      usmleStep: row.usmleStep,
+      USMLE: row.USMLE,
+      question: row.question,
+      optionOne: row.optionOne,
+      optionTwo: row.optionTwo,
+      optionThree: row.optionThree,
+      optionFour: row.optionFour,
+      optionFive: row.optionFive,
+      optionSix: row.optionSix,
+      correctAnswer: row.correctAnswer,
+      questionExplanation: row.questionExplanation,
+      optionOneExplanation: row.optionOneExplanation,
+      optionTwoExplanation: row.optionTwoExplanation,
+      optionThreeExplanation: row.optionThreeExplanation,
+      optionFourExplanation: row.optionFourExplanation,
+      optionFiveExplanation: row.optionFiveExplanation,
+      optionSixExplanation: row.optionSixExplanation,
+    }));
+
+    await MCQ.insertMany(mcqData);
+
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "MCQs uploaded and processed successfully",
+    });
+
+    deleteExcel(req.file.filename);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error processing MCQ file",
+      errorMessage: error.message,
+    });
+  }
+});
+
+const deleteExcel = (filename) => {
+  const filePath = path.join(__dirname, "uploads", filename);
+  fs.unlink(filePath, (err) => {
+    if (err) {
+      console.error("Error deleting Excel file:", err);
+    } else {
+      console.log("Excel file deleted successfully.");
+    }
+  });
+};
