@@ -85,7 +85,7 @@ const mcqSchema = new mongoose.Schema({
   image: {
     type: String,
   },
-  image_1: {
+  imageTwo: {
     type: String,
   },
   video: {

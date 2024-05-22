@@ -3,12 +3,16 @@ const MCQ = require("../models/mcqmodel");
 const addMCQ = async (req, res) => {
   try {
     let imageName = null;
+    let imageTwoName = null;
     let videoName = null;
 
     if (req.files) {
       const files = req.files;
       if (files.image) {
         imageName = files.image[0].filename;
+      }
+      if (files.imageTwo) { 
+        imageTwoName = files.imageTwo[0].filename;
       }
       if (files.video) {
         videoName = files.video[0].filename;
@@ -53,7 +57,8 @@ const addMCQ = async (req, res) => {
       optionFourExplanation,
       optionFiveExplanation,
       optionSixExplanation,
-      image: imageName,
+      image: imageName, // Set image property
+      imageTwo: imageTwoName, // Set imageTwo property
       video: videoName,
     });
 

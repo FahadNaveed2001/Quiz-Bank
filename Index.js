@@ -75,11 +75,11 @@ connectDB();
 //   allowedHeaders: ["Content-Type", "Authorization"],
 //   credentials: true,
 // };
-
 // app.use(cors(corsOptions));
+
 app.use(
   cors({
-    origin: "https://zap70.com",
+    origin: ["https://zap70.com", "http://localhost:3000"],
     credentials: true,
   })
 );
@@ -130,6 +130,7 @@ const upload = multer({
 app.post(
   "/add-mcqs",
   upload.fields([
+    { name: "imageTwo", maxCount: 1 },
     { name: "image", maxCount: 1 },
     { name: "video", maxCount: 1 },
   ]),
@@ -144,6 +145,7 @@ app.put(
   "/edit-mcqs/:mcqId",
   upload.fields([
     { name: "image", maxCount: 1 },
+    { name: "imageTwo", maxCount: 1 }, 
     { name: "video", maxCount: 1 },
   ]),
   async (req, res) => {
@@ -190,13 +192,16 @@ app.put(
       mcqToUpdate.optionFourExplanation = optionFourExplanation;
       mcqToUpdate.optionFiveExplanation = optionFiveExplanation;
       mcqToUpdate.optionSixExplanation = optionSixExplanation;
-
       if (req.files["image"]) {
         mcqToUpdate.image = req.files["image"][0].filename;
+      }
+      if (req.files["imageTwo"]) {
+        mcqToUpdate.imageTwo = req.files["imageTwo"][0].filename;
       }
       if (req.files["video"]) {
         mcqToUpdate.video = req.files["video"][0].filename;
       }
+
       const updatedMCQ = await mcqToUpdate.save();
       res.status(200).json({
         status: "success",
@@ -214,6 +219,7 @@ app.put(
     }
   }
 );
+
 app.delete("/mcq/:id/image", async (req, res) => {
   try {
     const mcqId = req.params.id;
@@ -295,6 +301,38 @@ const deleteVideo = (filename) => {
     }
   });
 };
+
+app.delete("/mcq/:id/imageTwo", async (req, res) => {
+  try {
+    const mcqId = req.params.id;
+    const mcq = await MCQ.findById(mcqId);
+    if (!mcq) {
+      return res.status(404).json({ error: true, message: "MCQ not found." });
+    }
+    if (!mcq.imageTwo) {
+      return res
+        .status(400)
+        .json({ error: true, message: "MCQ does not have a second image." });
+    }
+    deleteImage(mcq.imageTwo);
+    mcq.imageTwo = null;
+    await mcq.save();
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Second image deleted successfully from MCQ.",
+      data: mcq,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while deleting second image from MCQ.",
+      errorMessage: error.message,
+    });
+  }
+});
+
 app.delete("/delete-multiple-mcqs", async (req, res) => {
   try {
     const { mcqIds } = req.body;
