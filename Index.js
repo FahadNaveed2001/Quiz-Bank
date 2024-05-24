@@ -771,7 +771,7 @@ app.get("/all-questions", async (req, res) => {
   }
 });
 
-//////////////////////////////////////////////////////////////////////
+//this will lower cas the fields
 function toLowerCaseKeys(obj) {
   const lowercasedObj = {};
   for (const key in obj) {
@@ -782,6 +782,8 @@ function toLowerCaseKeys(obj) {
   return lowercasedObj;
 }
 
+
+//this func will formate data regarding flelds
 function convertOptions(data) {
   const convertedData = { ...data };
   convertedData.optionOne = convertedData["option a"];
@@ -825,6 +827,7 @@ function convertOptions(data) {
   return convertedData;
 }
 
+//this function will sure that all fields are present if not it will throw that feild as null
 function ensureAllFieldsPresent(data) {
   const fields = [
     "usmleStep",
@@ -859,6 +862,8 @@ function ensureAllFieldsPresent(data) {
   return data;
 }
 
+
+// this function will filter out the dupliacted questions
 async function filterDuplicates(questions) {
   const uniqueQuestions = [];
   const duplicates = new Set();
@@ -877,6 +882,8 @@ async function filterDuplicates(questions) {
   return uniqueQuestions;
 }
 
+
+//upload questions route
 app.post("/upload-questions", upload.single("file"), async (req, res) => {
   try {
     const {
@@ -966,6 +973,8 @@ app.post("/upload-questions", upload.single("file"), async (req, res) => {
   }
 });
 
+
+//this function will log the names of images 
 async function logImageName(question, imgFileName) {
   try {
     question.imageTwo = imgFileName;
