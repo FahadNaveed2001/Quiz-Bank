@@ -51,9 +51,9 @@ const userSignup = async (User, req, res) => {
 
       if (existingUser) {
           if (!existingUser.isEmailVerified) {
-              return res.status(400).json({ error: true, message: "Email not verified. Please check your email for verification instructions." });
+              return res.status(400).json({ error: true, message: "Email not verified. Please check your email for verification." });
           }
-          return res.status(400).json({ error: true, message: "User with this email already exists." });
+          return res.status(400).json({ error: true, message: "User already exists, Please Login." });
       }
 
       const verificationToken = generateVerificationToken();

@@ -19,7 +19,7 @@ const userLogin = async (User, predefinedAdmin, req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ error: true, message: "User with the provided email does not exist." });
+      return res.status(404).json({ error: true, message: "The provided Email or Password is invalid." });
     }
 
     if (!user.isEmailVerified) {
@@ -42,7 +42,7 @@ const userLogin = async (User, predefinedAdmin, req, res) => {
     } else {
       res.status(401).json({
         error: true,
-        message: "The provided password is incorrect."
+        message: "The provided Email or Password is invalid."
       });
     }
   } catch (error) {

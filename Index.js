@@ -10,6 +10,7 @@ const bcrypt = require("bcrypt");
 const fs = require("fs");
 // const excelToJson = require("convert-excel-to-json");
 const xlsx = require("xlsx");
+const ExcelJS = require("exceljs");
 
 //files imports
 const connectDB = require("./config/mongoconnection");
@@ -94,9 +95,6 @@ app.use(
   "/uploads/videos",
   express.static(path.join(__dirname, "uploads", "videos"))
 );
-// app uses
-// app.use(express.json());
-// app.use(cors());
 
 //Jwt Secret
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
@@ -145,7 +143,7 @@ app.put(
   "/edit-mcqs/:mcqId",
   upload.fields([
     { name: "image", maxCount: 1 },
-    { name: "imageTwo", maxCount: 1 }, 
+    { name: "imageTwo", maxCount: 1 },
     { name: "video", maxCount: 1 },
   ]),
   async (req, res) => {
@@ -571,6 +569,31 @@ app.post("/reset-password/:id/:token", async (req, res) => {
     });
   }
 });
+app.delete("/delete-user/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const user = await User.findByIdAndDelete(userId);
+    if (!user) {
+      return res.status(404).json({
+        error: true,
+        message: "User not found.",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "User deleted successfully.",
+    });
+    console.log(`User with ID ${userId} deleted successfully`);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error deleting user.",
+      errorMessage: error.message,
+    });
+  }
+});
 
 //feedback routes
 app.post("/add-feedback/:userId", async (req, res) => {
@@ -758,6 +781,7 @@ function toLowerCaseKeys(obj) {
   }
   return lowercasedObj;
 }
+
 function convertOptions(data) {
   const convertedData = { ...data };
   convertedData.optionOne = convertedData["option a"];
@@ -800,6 +824,7 @@ function convertOptions(data) {
 
   return convertedData;
 }
+
 function ensureAllFieldsPresent(data) {
   const fields = [
     "usmleStep",
@@ -821,7 +846,7 @@ function ensureAllFieldsPresent(data) {
     "optionSixExplanation",
     "comments",
     "image",
-    "image_1",
+    "imageTwo",
     "video",
   ];
 
@@ -833,6 +858,7 @@ function ensureAllFieldsPresent(data) {
 
   return data;
 }
+
 async function filterDuplicates(questions) {
   const uniqueQuestions = [];
   const duplicates = new Set();
@@ -850,6 +876,7 @@ async function filterDuplicates(questions) {
   }
   return uniqueQuestions;
 }
+
 app.post("/upload-questions", upload.single("file"), async (req, res) => {
   try {
     const {
@@ -857,11 +884,20 @@ app.post("/upload-questions", upload.single("file"), async (req, res) => {
       body: { USMLE, usmleStep },
     } = req;
     const inputFilePath = file.path;
-    const workbook = xlsx.readFile(inputFilePath);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
+
+    // Reading the workbook using ExcelJS
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(inputFilePath);
+    const worksheet = workbook.worksheets[0];
+
+    // Reading the workbook using xlsx
+    const xlsxWorkbook = xlsx.readFile(inputFilePath);
+    const sheetName = xlsxWorkbook.SheetNames[0];
+    const sheet = xlsxWorkbook.Sheets[sheetName];
     const jsonData = xlsx.utils.sheet_to_json(sheet, { defval: null });
-    const questionsToSave = jsonData.map((data) => {
+
+    // Processing the questions
+    const questionsToSave = jsonData.map((data, index) => {
       let convertedData = toLowerCaseKeys(data);
       convertedData = convertOptions(convertedData);
       if (!Array.isArray(convertedData.comments)) {
@@ -871,10 +907,58 @@ app.post("/upload-questions", upload.single("file"), async (req, res) => {
       delete convertedData.explanation;
       convertedData.USMLE = USMLE;
       convertedData.usmleStep = usmleStep;
+      convertedData.row = index + 1;
       return ensureAllFieldsPresent(convertedData);
     });
+
+    // Processing images
+    for (const image of worksheet.getImages()) {
+      const { tl } = image.range;
+      const img = workbook.model.media.find((m) => m.index === image.imageId);
+      if (img) {
+        const imgFileName = `${USMLE}.${tl.nativeRow}.${tl.nativeCol}.${img.name}.${img.extension}`;
+        const imgFilePath = path.join(
+          __dirname,
+          "uploads",
+          "images",
+          imgFileName
+        );
+        fs.writeFileSync(imgFilePath, img.buffer);
+        console.log("Image File Details:");
+        console.log("Row:", tl.nativeRow, "Column:", tl.nativeCol);
+        console.log("Name:", img.name);
+        console.log("Extension:", img.extension);
+        console.log("Size:", img.buffer.length, "bytes");
+        console.log("Path:", imgFilePath);
+
+        const question = questionsToSave.find((q) => q.row === tl.nativeRow);
+        if (question) {
+          console.log("Question for Row:", tl.nativeRow, "=>", question);
+          console.log("Column for Image:", tl.nativeCol);
+          console.log("Question before modification:", question);
+
+          // Assign images to the question
+          if (tl.nativeCol === 8) {
+            question.image = imgFileName;
+          } else if (tl.nativeCol === 10) {
+            question.imageTwo = imgFileName;
+          }
+
+          console.log("Question after modification:", question);
+          console.log("Assigned to Image:", question.image);
+          console.log("Assigned to ImageTwo:", question.imageTwo);
+
+          // Log the image filenames
+          console.log("Image file name:", imgFileName);
+          await logImageName(question, imgFileName);
+        }
+      }
+    }
+
     const uniqueQuestions = await filterDuplicates(questionsToSave);
     const savedQuestions = await MCQ.insertMany(uniqueQuestions);
+
+    // Removing the uploaded file
     fs.unlink(inputFilePath, (err) => {
       if (err) {
         console.error("Error deleting the file:", err);
@@ -896,6 +980,18 @@ app.post("/upload-questions", upload.single("file"), async (req, res) => {
     });
   }
 });
+
+async function logImageName(question, imgFileName) {
+  try {
+    question.imageTwo = imgFileName;
+    console.log("Question object before saving:", question);
+    await question.save();
+    console.log("Question object after saving:", question);
+    console.log("Image file name saved:", imgFileName);
+  } catch (error) {
+    console.error("Error saving question with image filename:", error);
+  }
+}
 
 //server
 app.listen(PORT, () => {
