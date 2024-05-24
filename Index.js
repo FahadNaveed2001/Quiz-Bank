@@ -884,19 +884,13 @@ app.post("/upload-questions", upload.single("file"), async (req, res) => {
       body: { USMLE, usmleStep },
     } = req;
     const inputFilePath = file.path;
-
-    // Reading the workbook using ExcelJS
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(inputFilePath);
     const worksheet = workbook.worksheets[0];
-
-    // Reading the workbook using xlsx
     const xlsxWorkbook = xlsx.readFile(inputFilePath);
     const sheetName = xlsxWorkbook.SheetNames[0];
     const sheet = xlsxWorkbook.Sheets[sheetName];
     const jsonData = xlsx.utils.sheet_to_json(sheet, { defval: null });
-
-    // Processing the questions
     const questionsToSave = jsonData.map((data, index) => {
       let convertedData = toLowerCaseKeys(data);
       convertedData = convertOptions(convertedData);
@@ -910,8 +904,6 @@ app.post("/upload-questions", upload.single("file"), async (req, res) => {
       convertedData.row = index + 1;
       return ensureAllFieldsPresent(convertedData);
     });
-
-    // Processing images
     for (const image of worksheet.getImages()) {
       const { tl } = image.range;
       const img = workbook.model.media.find((m) => m.index === image.imageId);
@@ -936,19 +928,14 @@ app.post("/upload-questions", upload.single("file"), async (req, res) => {
           console.log("Question for Row:", tl.nativeRow, "=>", question);
           console.log("Column for Image:", tl.nativeCol);
           console.log("Question before modification:", question);
-
-          // Assign images to the question
           if (tl.nativeCol === 8) {
             question.image = imgFileName;
           } else if (tl.nativeCol === 10) {
             question.imageTwo = imgFileName;
           }
-
           console.log("Question after modification:", question);
           console.log("Assigned to Image:", question.image);
           console.log("Assigned to ImageTwo:", question.imageTwo);
-
-          // Log the image filenames
           console.log("Image file name:", imgFileName);
           await logImageName(question, imgFileName);
         }
@@ -957,8 +944,6 @@ app.post("/upload-questions", upload.single("file"), async (req, res) => {
 
     const uniqueQuestions = await filterDuplicates(questionsToSave);
     const savedQuestions = await MCQ.insertMany(uniqueQuestions);
-
-    // Removing the uploaded file
     fs.unlink(inputFilePath, (err) => {
       if (err) {
         console.error("Error deleting the file:", err);
