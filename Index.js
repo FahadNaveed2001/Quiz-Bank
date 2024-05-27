@@ -139,6 +139,8 @@ app.get("/mcq/:mcqId", getMCQById);
 app.post("/add-comment/:mcqId", addCommentToMCQ);
 app.get("/mcqs-with-comments", getMCQsWithComments);
 app.delete("/delete-mcq/:mcqId", deleteMCQ);
+
+// new api 
 app.put(
   "/edit-mcqs/:mcqId",
   upload.fields([
@@ -171,13 +173,11 @@ app.put(
     if (!usmleStep || !USMLE || !question || !correctAnswer) {
       return res.status(400).json({ error: true, message: "Missing required fields." });
     }
-
     try {
       const mcqToUpdate = await MCQ.findById(mcqId);
       if (!mcqToUpdate) {
         return res.status(404).json({ error: true, message: "MCQ not found." });
       }
-
       const fieldsToUpdate = {
         usmleStep,
         USMLE,
@@ -197,42 +197,33 @@ app.put(
         optionFiveExplanation,
         optionSixExplanation,
       };
-
       Object.keys(fieldsToUpdate).forEach(field => {
         if (fieldsToUpdate[field] !== undefined) {
           mcqToUpdate[field] = fieldsToUpdate[field];
         }
       });
-
       if (req.files["image"]) {
         mcqToUpdate.image = req.files["image"][0].filename;
       }
-
       if (req.files["imageTwo"]) {
         const imagesDirectory = path.join(__dirname, 'uploads/images');
         const newImageTwo = req.files["imageTwo"][0].filename;
-
-        // If `imageTwo` already exists, delete the old file and save the new one with the same name
         if (mcqToUpdate.imageTwo) {
           const oldImagePath = path.join(imagesDirectory, mcqToUpdate.imageTwo);
           if (fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);
           }
-          // Save the new file with the same name
           const newImagePath = path.join(imagesDirectory, mcqToUpdate.imageTwo);
           fs.renameSync(req.files["imageTwo"][0].path, newImagePath);
         } else {
-          // If no previous `imageTwo`, save the new file with its original name
           const newImagePath = path.join(imagesDirectory, newImageTwo);
           fs.renameSync(req.files["imageTwo"][0].path, newImagePath);
           mcqToUpdate.imageTwo = newImageTwo;
         }
       }
-
       if (req.files["video"]) {
         mcqToUpdate.video = req.files["video"][0].filename;
       }
-
       const updatedMCQ = await mcqToUpdate.save();
       res.status(200).json({
         status: "success",
