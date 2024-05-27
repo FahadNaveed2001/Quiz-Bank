@@ -140,7 +140,6 @@ app.post("/add-comment/:mcqId", addCommentToMCQ);
 app.get("/mcqs-with-comments", getMCQsWithComments);
 app.delete("/delete-mcq/:mcqId", deleteMCQ);
 
-// new api 
 app.put(
   "/edit-mcqs/:mcqId",
   upload.fields([
