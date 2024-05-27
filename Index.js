@@ -148,13 +148,37 @@ app.put(
   ]),
   async (req, res) => {
     const { mcqId } = req.params;
+    const {
+      usmleStep,
+      USMLE,
+      question,
+      optionOne,
+      optionTwo,
+      optionThree,
+      optionFour,
+      optionFive,
+      optionSix,
+      correctAnswer,
+      questionExplanation,
+      optionOneExplanation,
+      optionTwoExplanation,
+      optionThreeExplanation,
+      optionFourExplanation,
+      optionFiveExplanation,
+      optionSixExplanation,
+    } = req.body;
+
+    if (!usmleStep || !USMLE || !question || !correctAnswer) {
+      return res.status(400).json({ error: true, message: "Missing required fields." });
+    }
+
     try {
       const mcqToUpdate = await MCQ.findById(mcqId);
-
       if (!mcqToUpdate) {
         return res.status(404).json({ error: true, message: "MCQ not found." });
       }
-      const {
+
+      const fieldsToUpdate = {
         usmleStep,
         USMLE,
         question,
@@ -172,30 +196,39 @@ app.put(
         optionFourExplanation,
         optionFiveExplanation,
         optionSixExplanation,
-      } = req.body;
-      mcqToUpdate.usmleStep = usmleStep;
-      mcqToUpdate.USMLE = USMLE;
-      mcqToUpdate.question = question;
-      mcqToUpdate.optionOne = optionOne;
-      mcqToUpdate.optionTwo = optionTwo;
-      mcqToUpdate.optionThree = optionThree;
-      mcqToUpdate.optionFour = optionFour;
-      mcqToUpdate.optionFive = optionFive;
-      mcqToUpdate.optionSix = optionSix;
-      mcqToUpdate.correctAnswer = correctAnswer;
-      mcqToUpdate.questionExplanation = questionExplanation;
-      mcqToUpdate.optionOneExplanation = optionOneExplanation;
-      mcqToUpdate.optionTwoExplanation = optionTwoExplanation;
-      mcqToUpdate.optionThreeExplanation = optionThreeExplanation;
-      mcqToUpdate.optionFourExplanation = optionFourExplanation;
-      mcqToUpdate.optionFiveExplanation = optionFiveExplanation;
-      mcqToUpdate.optionSixExplanation = optionSixExplanation;
+      };
+
+      Object.keys(fieldsToUpdate).forEach(field => {
+        if (fieldsToUpdate[field] !== undefined) {
+          mcqToUpdate[field] = fieldsToUpdate[field];
+        }
+      });
+
       if (req.files["image"]) {
         mcqToUpdate.image = req.files["image"][0].filename;
       }
+
       if (req.files["imageTwo"]) {
-        mcqToUpdate.imageTwo = req.files["imageTwo"][0].filename;
+        const imagesDirectory = path.join(__dirname, 'uploads/images');
+        const newImageTwo = req.files["imageTwo"][0].filename;
+
+        // If `imageTwo` already exists, delete the old file and save the new one with the same name
+        if (mcqToUpdate.imageTwo) {
+          const oldImagePath = path.join(imagesDirectory, mcqToUpdate.imageTwo);
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+          // Save the new file with the same name
+          const newImagePath = path.join(imagesDirectory, mcqToUpdate.imageTwo);
+          fs.renameSync(req.files["imageTwo"][0].path, newImagePath);
+        } else {
+          // If no previous `imageTwo`, save the new file with its original name
+          const newImagePath = path.join(imagesDirectory, newImageTwo);
+          fs.renameSync(req.files["imageTwo"][0].path, newImagePath);
+          mcqToUpdate.imageTwo = newImageTwo;
+        }
       }
+
       if (req.files["video"]) {
         mcqToUpdate.video = req.files["video"][0].filename;
       }
