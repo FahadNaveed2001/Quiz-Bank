@@ -1115,6 +1115,79 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
   }
 });
 
+
+app.delete("/delete-test/:id", async (req, res) => {
+  try {
+    const testId = req.params.id;
+    const deletedTest = await Test.findByIdAndDelete(testId);
+    if (!deletedTest) {
+      return res.status(404).json({
+        error: true,
+        message: "Test not found.",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Test deleted.",
+      data: deletedTest,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error deleting test.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+app.get("/uploaded-tests", async (req, res) => {
+  try {
+    const tests = await Test.find();
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Tests fetched successfully.",
+      data: tests,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error fetching tests.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+app.get("/uploaded-test/:id", async (req, res) => {
+  try {
+    const testId = req.params.id;
+    const test = await Test.findById(testId);
+
+    if (!test) {
+      return res.status(404).json({
+        error: true,
+        message: "Test not found.",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Test fetched successfully.",
+      data: test,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error fetching test.",
+      errorMessage: error.message,
+    });
+  }
+});
+
 //server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
