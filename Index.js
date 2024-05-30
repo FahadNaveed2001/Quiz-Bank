@@ -1189,6 +1189,113 @@ app.get("/uploaded-test/:id", async (req, res) => {
   }
 });
 
+app.post('/save-test-attempt', async (req, res) => {
+  try {
+      const { userId, testId, testAttemptedAt, totalMarks, obtainedMarks } = req.body;
+      const user = await User.findById(userId);
+      if (!user) {
+          return res.status(404).json({ error: true, message: "User not found." });
+      }
+      const test = await Test.findById(testId);
+      if (!test) {
+          return res.status(404).json({ error: true, message: "Test not found." });
+      }
+      const testAttempt = {
+          test: testId,
+          questions: test.questions, 
+          createdAt: testAttemptedAt,
+          totalScore: totalMarks,
+          obtainedScore: obtainedMarks,
+          usmleSteps: test.usmleStep, 
+          USMLE: test.USMLE 
+      };
+      user.attemptedTests.push(testAttempt);
+      await user.save();
+      res.status(200).json({
+          status: "success",
+          success: true,
+          message: "Test attempt information saved successfully.",
+          testAttempt: testAttempt 
+      });
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: true, message: "Error saving test attempt information.", errorMessage: error.message });
+  }
+});
+
+app.get('/user-tests/:userId', async (req, res) => {
+  try {
+      const userId = req.params.userId;
+      const user = await User.findById(userId).populate('attemptedTests.test');
+      if (!user) {
+          return res.status(404).json({ error: true, message: "User not found." });
+      }
+      res.status(200).json({
+          status: "success",
+          success: true,
+          message: "Tests fetched successfully.",
+          tests: user.attemptedTests 
+      });
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: true, message: "Error fetching tests.", errorMessage: error.message });
+  }
+});
+
+
+app.get('/all-attempted-tests', async (req, res) => {
+  try {
+      const users = await User.find().populate('attemptedTests.test');
+      if (!users) {
+          return res.status(404).json({ error: true, message: "No users found." });
+      }
+      let allTests = [];
+      users.forEach(user => {
+          user.attemptedTests.forEach(testAttempt => {
+              const testInfo = {
+                  userId: user._id,
+                  ...testAttempt.toObject() 
+              };
+              allTests.push(testInfo);
+          });
+      });
+      res.status(200).json({
+          status: "success",
+          success: true,
+          message: "All attempted tests fetched successfully.",
+          tests: allTests
+      });
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: true, message: "Error fetching attempted tests.", errorMessage: error.message });
+  }
+});
+
+
+app.delete('/delete-test/:testId', async (req, res) => {
+  try {
+      const { testId } = req.params;
+
+      // Find the test by test ID
+      const test = await Test.findById(testId);
+      if (!test) {
+          return res.status(404).json({ error: true, message: "Test not found." });
+      }
+
+      // Delete the test
+      await Test.findByIdAndDelete(testId);
+
+      res.status(200).json({
+          status: "success",
+          success: true,
+          message: "Test deleted successfully."
+      });
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: true, message: "Error deleting test.", errorMessage: error.message });
+  }
+});
+
 //server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

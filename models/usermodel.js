@@ -63,32 +63,72 @@ const userSchema = new mongoose.Schema({
       },
     },
   ],
-  feedbacks: {
-    type: [{
-      name: {
-        type: String,
-        required: false,
+
+  attemptedTests: [
+    {
+      test: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Test", 
       },
-      text: {
-        type: String,
-        required: false,
-      },
-      school: {
-        type: String,
-        required: false,
-      },
-      rating: {
-        type: Number,
-        enum: [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5],
-        required: false,
-      },
-      feedbackCreatedAt: {
+      questions: [
+        {
+          questionId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Question", 
+          },
+          selectedOption: String,
+        },
+      ],
+      createdAt: {
         type: Date,
         default: Date.now,
       },
-    }],
-    default: []
-  }
+      totalScore: {
+        type: Number,
+        required: true,
+      },
+      obtainedScore: {
+        type: Number,
+        required: true,
+      },
+      usmleSteps: {
+        type: Number,
+        required: false,
+      },
+      USMLE: {
+        type: String,
+        required: false,
+      },
+    },
+  ],
+  feedbacks: {
+    type: [
+      {
+        name: {
+          type: String,
+          required: false,
+        },
+        text: {
+          type: String,
+          required: false,
+        },
+        school: {
+          type: String,
+          required: false,
+        },
+        rating: {
+          type: Number,
+          enum: [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5],
+          required: false,
+        },
+        feedbackCreatedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    default: [],
+  },
 });
 
 const User = mongoose.model("Q/A-User", userSchema);
