@@ -146,8 +146,6 @@ app.post("/add-comment/:mcqId", addCommentToMCQ);
 app.get("/mcqs-with-comments", getMCQsWithComments);
 app.delete("/delete-mcq/:mcqId", deleteMCQ);
 
-
-
 app.put(
   "/edit-mcqs/:mcqId",
   upload.fields([
@@ -178,7 +176,9 @@ app.put(
     } = req.body;
 
     if (!usmleStep || !USMLE || !question || !correctAnswer) {
-      return res.status(400).json({ error: true, message: "Missing required fields." });
+      return res
+        .status(400)
+        .json({ error: true, message: "Missing required fields." });
     }
     try {
       const mcqToUpdate = await MCQ.findById(mcqId);
@@ -204,7 +204,7 @@ app.put(
         optionFiveExplanation,
         optionSixExplanation,
       };
-      Object.keys(fieldsToUpdate).forEach(field => {
+      Object.keys(fieldsToUpdate).forEach((field) => {
         if (fieldsToUpdate[field] !== undefined) {
           mcqToUpdate[field] = fieldsToUpdate[field];
         }
@@ -213,7 +213,7 @@ app.put(
         mcqToUpdate.image = req.files["image"][0].filename;
       }
       if (req.files["imageTwo"]) {
-        const imagesDirectory = path.join(__dirname, 'uploads/images');
+        const imagesDirectory = path.join(__dirname, "uploads/images");
         const newImageTwo = req.files["imageTwo"][0].filename;
         if (mcqToUpdate.imageTwo) {
           const oldImagePath = path.join(imagesDirectory, mcqToUpdate.imageTwo);
@@ -813,7 +813,6 @@ function toLowerCaseKeys(obj) {
   return lowercasedObj;
 }
 
-
 //this func will formate data regarding flelds
 function convertOptions(data) {
   const convertedData = { ...data };
@@ -893,7 +892,6 @@ function ensureAllFieldsPresent(data) {
   return data;
 }
 
-
 // this function will filter out the dupliacted questions
 async function filterDuplicates(questions) {
   const uniqueQuestions = [];
@@ -912,7 +910,6 @@ async function filterDuplicates(questions) {
   }
   return uniqueQuestions;
 }
-
 
 //upload questions route
 app.post("/upload-questions", upload.single("file"), async (req, res) => {
@@ -1004,8 +1001,7 @@ app.post("/upload-questions", upload.single("file"), async (req, res) => {
   }
 });
 
-
-//this function will log the names of images 
+//this function will log the names of images
 async function logImageName(question, imgFileName) {
   try {
     question.imageTwo = imgFileName;
@@ -1017,9 +1013,6 @@ async function logImageName(question, imgFileName) {
     console.error("Error saving question with image filename:", error);
   }
 }
-
-
-
 
 //////////new (changes) routes
 async function filterUniqueQuestions(questions) {
@@ -1040,7 +1033,10 @@ async function filterUniqueQuestions(questions) {
 }
 app.post("/upload-test", upload.single("file"), async (req, res) => {
   try {
-    const { file, body: { usmleStep, testName } } = req;
+    const {
+      file,
+      body: { usmleStep, testName },
+    } = req;
     const inputFilePath = file.path;
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(inputFilePath);
@@ -1066,7 +1062,12 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       const img = workbook.model.media.find((m) => m.index === image.imageId);
       if (img) {
         const imgFileName = `${testName}_${usmleStep}_${tl.nativeRow}_${tl.nativeCol}_${img.name}.${img.extension}`;
-        const imgFilePath = path.join(__dirname, "uploads", "testimages", imgFileName);
+        const imgFilePath = path.join(
+          __dirname,
+          "uploads",
+          "testimages",
+          imgFileName
+        );
         fs.writeFileSync(imgFilePath, img.buffer);
         const question = uniqueQuestions.find((q) => q.row === tl.nativeRow);
         if (question) {
@@ -1189,114 +1190,133 @@ app.get("/uploaded-test/:id", async (req, res) => {
   }
 });
 
-app.post('/save-test-attempt', async (req, res) => {
+app.post("/save-test-attempt", async (req, res) => {
   try {
-      const { userId, testId, testAttemptedAt, totalMarks, obtainedMarks } = req.body;
-      const user = await User.findById(userId);
-      if (!user) {
-          return res.status(404).json({ error: true, message: "User not found." });
-      }
-      const test = await Test.findById(testId);
-      if (!test) {
-          return res.status(404).json({ error: true, message: "Test not found." });
-      }
-      const testAttempt = {
-          test: testId,
-          questions: test.questions, 
-          createdAt: testAttemptedAt,
-          totalScore: totalMarks,
-          obtainedScore: obtainedMarks,
-          usmleSteps: test.usmleStep, 
-          USMLE: test.USMLE 
-      };
-      user.attemptedTests.push(testAttempt);
-      await user.save();
-      res.status(200).json({
-          status: "success",
-          success: true,
-          message: "Test attempt information saved successfully.",
-          testAttempt: testAttempt 
-      });
+    const { userId, testId, testAttemptedAt, totalMarks, obtainedMarks } =
+      req.body;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: true, message: "User not found." });
+    }
+    const test = await Test.findById(testId);
+    if (!test) {
+      return res.status(404).json({ error: true, message: "Test not found." });
+    }
+    const testAttempt = {
+      test: testId,
+      questions: test.questions,
+      createdAt: testAttemptedAt,
+      totalScore: totalMarks,
+      obtainedScore: obtainedMarks,
+      usmleSteps: test.usmleStep,
+      USMLE: test.USMLE,
+    };
+    user.attemptedTests.push(testAttempt);
+    await user.save();
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Test attempt information saved successfully.",
+      testAttempt: testAttempt,
+    });
   } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: true, message: "Error saving test attempt information.", errorMessage: error.message });
+    console.error(error);
+    res
+      .status(500)
+      .json({
+        error: true,
+        message: "Error saving test attempt information.",
+        errorMessage: error.message,
+      });
   }
 });
 
-app.get('/user-tests/:userId', async (req, res) => {
+app.get("/user-tests/:userId", async (req, res) => {
   try {
-      const userId = req.params.userId;
-      const user = await User.findById(userId).populate('attemptedTests.test');
-      if (!user) {
-          return res.status(404).json({ error: true, message: "User not found." });
-      }
-      res.status(200).json({
-          status: "success",
-          success: true,
-          message: "Tests fetched successfully.",
-          tests: user.attemptedTests 
-      });
+    const userId = req.params.userId;
+    const user = await User.findById(userId).populate("attemptedTests.test");
+    if (!user) {
+      return res.status(404).json({ error: true, message: "User not found." });
+    }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Tests fetched successfully.",
+      tests: user.attemptedTests,
+    });
   } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: true, message: "Error fetching tests.", errorMessage: error.message });
+    console.error(error);
+    res
+      .status(500)
+      .json({
+        error: true,
+        message: "Error fetching tests.",
+        errorMessage: error.message,
+      });
   }
 });
 
-
-app.get('/all-attempted-tests', async (req, res) => {
+app.get("/all-attempted-tests", async (req, res) => {
   try {
-      const users = await User.find().populate('attemptedTests.test');
-      if (!users) {
-          return res.status(404).json({ error: true, message: "No users found." });
-      }
-      let allTests = [];
-      users.forEach(user => {
-          user.attemptedTests.forEach(testAttempt => {
-              const testInfo = {
-                  userId: user._id,
-                  ...testAttempt.toObject() 
-              };
-              allTests.push(testInfo);
-          });
+    const users = await User.find().populate("attemptedTests.test");
+    if (!users) {
+      return res.status(404).json({ error: true, message: "No users found." });
+    }
+    let allTests = [];
+    users.forEach((user) => {
+      user.attemptedTests.forEach((testAttempt) => {
+        const testInfo = {
+          userId: user._id,
+          ...testAttempt.toObject(),
+        };
+        allTests.push(testInfo);
       });
-      res.status(200).json({
-          status: "success",
-          success: true,
-          message: "All attempted tests fetched successfully.",
-          tests: allTests
-      });
+    });
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "All attempted tests fetched successfully.",
+      tests: allTests,
+    });
   } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: true, message: "Error fetching attempted tests.", errorMessage: error.message });
+    console.error(error);
+    res
+      .status(500)
+      .json({
+        error: true,
+        message: "Error fetching attempted tests.",
+        errorMessage: error.message,
+      });
   }
 });
 
-
-app.delete('/delete-test/:testId', async (req, res) => {
+app.delete("/delete-test/:testId", async (req, res) => {
   try {
-      const { testId } = req.params;
-
-      // Find the test by test ID
-      const test = await Test.findById(testId);
-      if (!test) {
-          return res.status(404).json({ error: true, message: "Test not found." });
-      }
-
-      // Delete the test
-      await Test.findByIdAndDelete(testId);
-
-      res.status(200).json({
-          status: "success",
-          success: true,
-          message: "Test deleted successfully."
-      });
+    const { testId } = req.params;
+    const test = await Test.findById(testId);
+    if (!test) {
+      return res.status(404).json({ error: true, message: "Test not found." });
+    }
+    await Test.findByIdAndDelete(testId);
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Test deleted successfully.",
+    });
   } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: true, message: "Error deleting test.", errorMessage: error.message });
+    console.error(error);
+    res
+      .status(500)
+      .json({
+        error: true,
+        message: "Error deleting test.",
+        errorMessage: error.message,
+      });
   }
 });
 
 //server
 app.listen(PORT, () => {
+  console.log("==================================");
   console.log(`Server is running on port ${PORT}`);
 });
