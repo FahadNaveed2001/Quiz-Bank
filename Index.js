@@ -97,6 +97,10 @@ app.use(
   "/uploads/videos",
   express.static(path.join(__dirname, "uploads", "videos"))
 );
+app.use(
+  "/uploads/videos",
+  express.static(path.join(__dirname, "uploads", "testimages"))
+);
 
 //Jwt Secret
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
@@ -1016,6 +1020,7 @@ async function logImageName(question, imgFileName) {
 
 
 
+
 //////////new (changes) routes
 async function filterUniqueQuestions(questions) {
   const uniqueQuestions = [];
@@ -1033,7 +1038,6 @@ async function filterUniqueQuestions(questions) {
   }
   return uniqueQuestions;
 }
-
 app.post("/upload-test", upload.single("file"), async (req, res) => {
   try {
     const { file, body: { usmleStep, testName } } = req;
@@ -1099,7 +1103,6 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
         data: newTest,
       });
     }
-
     fs.unlink(inputFilePath, (err) => {
       if (err) {
         console.error("Error deleting the file:", err);
@@ -1114,8 +1117,6 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
     });
   }
 });
-
-
 app.delete("/delete-test/:id", async (req, res) => {
   try {
     const testId = req.params.id;
