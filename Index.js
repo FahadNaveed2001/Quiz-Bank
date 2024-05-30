@@ -16,6 +16,8 @@ const ExcelJS = require("exceljs");
 const connectDB = require("./config/mongoconnection");
 const User = require("./models/usermodel");
 const MCQ = require("./models/mcqmodel");
+const Test = require("./models/test");
+
 const predefinedAdmin = require("./models/adminmodel");
 const { body, validationResult } = require("express-validator");
 const { addMCQ } = require("./mcqroutes/addmcq");
@@ -139,6 +141,8 @@ app.get("/mcq/:mcqId", getMCQById);
 app.post("/add-comment/:mcqId", addCommentToMCQ);
 app.get("/mcqs-with-comments", getMCQsWithComments);
 app.delete("/delete-mcq/:mcqId", deleteMCQ);
+
+
 
 app.put(
   "/edit-mcqs/:mcqId",
@@ -1009,6 +1013,107 @@ async function logImageName(question, imgFileName) {
     console.error("Error saving question with image filename:", error);
   }
 }
+
+
+
+//////////new (changes) routes
+async function filterUniqueQuestions(questions) {
+  const uniqueQuestions = [];
+  const questionMap = new Map();
+  for (const question of questions) {
+    const questionKey = `${question.question}_${question.optionOne}_${question.optionTwo}_${question.optionThree}_${question.optionFour}_${question.optionFive}_${question.optionSix}`;
+    if (!questionMap.has(questionKey)) {
+      questionMap.set(questionKey, question);
+    } else {
+      questionMap.set(questionKey, question);
+    }
+  }
+  for (const value of questionMap.values()) {
+    uniqueQuestions.push(value);
+  }
+  return uniqueQuestions;
+}
+
+app.post("/upload-test", upload.single("file"), async (req, res) => {
+  try {
+    const { file, body: { usmleStep, testName } } = req;
+    const inputFilePath = file.path;
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(inputFilePath);
+    const worksheet = workbook.worksheets[0];
+    const xlsxWorkbook = xlsx.readFile(inputFilePath);
+    const sheetName = xlsxWorkbook.SheetNames[0];
+    const sheet = xlsxWorkbook.Sheets[sheetName];
+    const jsonData = xlsx.utils.sheet_to_json(sheet, { defval: null });
+    const questionsToSave = jsonData.map((data, index) => {
+      let convertedData = toLowerCaseKeys(data);
+      convertedData = convertOptions(convertedData);
+      if (!Array.isArray(convertedData.comments)) {
+        convertedData.comments = [];
+      }
+      convertedData.questionExplanation = convertedData.explanation;
+      delete convertedData.explanation;
+      convertedData.row = index + 1;
+      return ensureAllFieldsPresent(convertedData);
+    });
+    const uniqueQuestions = await filterUniqueQuestions(questionsToSave);
+    for (const image of worksheet.getImages()) {
+      const { tl } = image.range;
+      const img = workbook.model.media.find((m) => m.index === image.imageId);
+      if (img) {
+        const imgFileName = `${testName}_${usmleStep}_${tl.nativeRow}_${tl.nativeCol}_${img.name}.${img.extension}`;
+        const imgFilePath = path.join(__dirname, "uploads", "testimages", imgFileName);
+        fs.writeFileSync(imgFilePath, img.buffer);
+        const question = uniqueQuestions.find((q) => q.row === tl.nativeRow);
+        if (question) {
+          if (tl.nativeCol === 8) {
+            question.image = imgFileName;
+          } else if (tl.nativeCol === 10) {
+            question.imageTwo = imgFileName;
+          }
+          await logImageName(question, imgFileName);
+        }
+      }
+    }
+    const test = await Test.findOne({ testName, usmleStep });
+    if (test) {
+      test.questions = uniqueQuestions;
+      await test.save();
+      res.status(200).json({
+        status: "success",
+        success: true,
+        message: "questions saved",
+        data: test,
+      });
+    } else {
+      const newTest = new Test({
+        testName,
+        usmleStep,
+        questions: uniqueQuestions,
+      });
+      await newTest.save();
+      res.status(200).json({
+        status: "success",
+        success: true,
+        message: "question saved in db",
+        data: newTest,
+      });
+    }
+
+    fs.unlink(inputFilePath, (err) => {
+      if (err) {
+        console.error("Error deleting the file:", err);
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error saving questions",
+      errorMessage: error.message,
+    });
+  }
+});
 
 //server
 app.listen(PORT, () => {
