@@ -70,19 +70,19 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Test", 
       },
-      questions: [
-        {
-          questionId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Question", 
-          },
-          selectedOption: String,
-        },
-      ],
-      createdAt: {
-        type: Date,
-        default: Date.now,
-      },
+      // questions: [
+      //   {
+      //     questionId: {
+      //       type: mongoose.Schema.Types.ObjectId,
+      //       ref: "Question", 
+      //     },
+      //     selectedOption: String,
+      //   },
+      // ],
+      // createdAt: {
+      //   type: Date,
+      //   default: Date.now,
+      // },
       totalScore: {
         type: Number,
         required: true,
@@ -91,14 +91,14 @@ const userSchema = new mongoose.Schema({
         type: Number,
         required: true,
       },
-      usmleSteps: {
-        type: Number,
-        required: false,
-      },
-      USMLE: {
-        type: String,
-        required: false,
-      },
+      // usmleSteps: {
+      //   type: Number,
+      //   required: false,
+      // },
+      // USMLE: {
+      //   type: String,
+      //   required: false,
+      // },
     },
   ],
   feedbacks: {

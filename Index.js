@@ -1290,7 +1290,7 @@ app.get("/all-attempted-tests", async (req, res) => {
   }
 });
 
-app.delete("/delete-test/:testId", async (req, res) => {
+app.delete("/delete-users-test/:testId", async (req, res) => {
   try {
     const { testId } = req.params;
     const test = await Test.findById(testId);
@@ -1315,8 +1315,12 @@ app.delete("/delete-test/:testId", async (req, res) => {
   }
 });
 
+
+
 //server
 app.listen(PORT, () => {
   console.log("==================================");
   console.log(`Server is running on port ${PORT}`);
 });
+
+

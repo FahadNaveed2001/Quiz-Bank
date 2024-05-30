@@ -4,7 +4,6 @@ const saveQuizzes = async (User, req, res) => {
       const user = await User.findById(userId);
       if (!user) {
         return res.status(404).json({ error: true, message: "User not found."});
-
       }
       for (const quizData of attemptedQuizzes) {
         const { questions, totalScore, obtainedScore, usmleSteps, USMLE } =
