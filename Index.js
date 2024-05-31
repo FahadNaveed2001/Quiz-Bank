@@ -1183,8 +1183,7 @@ app.get("/uploaded-test/:id", async (req, res) => {
         message: "Test not found."
       });
     }
-
-    // Function to divide questions into sections of 40 questions each
+    //create sections
     const createSections = (questions, sectionSize) => {
       const sections = [];
       for (let i = 0; i < questions.length; i += sectionSize) {
@@ -1192,11 +1191,9 @@ app.get("/uploaded-test/:id", async (req, res) => {
       }
       return sections;
     };
-
-    // Create sections
     const sections = createSections(test.questions, 40);
 
-    // Format sections
+    //formate data in sections
     const formattedSections = sections.map((section, index) => ({
       section: `Section ${index + 1}`,
       questions: section.map(question => ({
