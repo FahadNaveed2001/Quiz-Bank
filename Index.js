@@ -1035,8 +1035,9 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
   try {
     const {
       file,
-      body: { usmleStep, testName },
+      body: { usmleStep, testName, testDescription },
     } = req;
+
     const inputFilePath = file.path;
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(inputFilePath);
@@ -1045,6 +1046,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
     const sheetName = xlsxWorkbook.SheetNames[0];
     const sheet = xlsxWorkbook.Sheets[sheetName];
     const jsonData = xlsx.utils.sheet_to_json(sheet, { defval: null });
+
     const questionsToSave = jsonData.map((data, index) => {
       let convertedData = toLowerCaseKeys(data);
       convertedData = convertOptions(convertedData);
@@ -1056,7 +1058,9 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       convertedData.row = index + 1;
       return ensureAllFieldsPresent(convertedData);
     });
+
     const uniqueQuestions = await filterUniqueQuestions(questionsToSave);
+
     for (const image of worksheet.getImages()) {
       const { tl } = image.range;
       const img = workbook.model.media.find((m) => m.index === image.imageId);
@@ -1080,9 +1084,11 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
         }
       }
     }
+
     const test = await Test.findOne({ testName, usmleStep });
     if (test) {
       test.questions = uniqueQuestions;
+      test.testDescription = testDescription;
       await test.save();
       res.status(200).json({
         status: "success",
@@ -1094,16 +1100,18 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       const newTest = new Test({
         testName,
         usmleStep,
+        testDescription,
         questions: uniqueQuestions,
       });
       await newTest.save();
       res.status(200).json({
         status: "success",
         success: true,
-        message: "question saved in db",
+        message: "questions saved in db",
         data: newTest,
       });
     }
+
     fs.unlink(inputFilePath, (err) => {
       if (err) {
         console.error("Error deleting the file:", err);
@@ -1118,6 +1126,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
     });
   }
 });
+
 app.delete("/delete-test/:id", async (req, res) => {
   try {
     const testId = req.params.id;
@@ -1171,24 +1180,80 @@ app.get("/uploaded-test/:id", async (req, res) => {
     if (!test) {
       return res.status(404).json({
         error: true,
-        message: "Test not found.",
+        message: "Test not found."
       });
     }
+
+    // Function to divide questions into sections of 40 questions each
+    const createSections = (questions, sectionSize) => {
+      const sections = [];
+      for (let i = 0; i < questions.length; i += sectionSize) {
+        sections.push(questions.slice(i, i + sectionSize));
+      }
+      return sections;
+    };
+
+    // Create sections
+    const sections = createSections(test.questions, 40);
+
+    // Format sections
+    const formattedSections = sections.map((section, index) => ({
+      section: `Section ${index + 1}`,
+      questions: section.map(question => ({
+        id: question._id,
+        question: question.question,
+        options: {
+          optionOne: question.optionOne,
+          optionTwo: question.optionTwo,
+          optionThree: question.optionThree,
+          optionFour: question.optionFour,
+          optionFive: question.optionFive,
+          optionSix: question.optionSix
+        },
+        correctAnswer: question.correctAnswer,
+        explanations: {
+          questionExplanation: question.questionExplanation,
+          optionOneExplanation: question.optionOneExplanation,
+          optionTwoExplanation: question.optionTwoExplanation,
+          optionThreeExplanation: question.optionThreeExplanation,
+          optionFourExplanation: question.optionFourExplanation,
+          optionFiveExplanation: question.optionFiveExplanation,
+          optionSixExplanation: question.optionSixExplanation
+        },
+        comments: question.comments,
+        images: {
+          image: question.image,
+          imageTwo: question.imageTwo
+        },
+        video: question.video,
+        row: question.row
+      }))
+    }));
+
     res.status(200).json({
       status: "success",
       success: true,
       message: "Test fetched successfully.",
-      data: test,
+      data: {
+        id: test._id,
+        testName: test.testName,
+        testDescription: test.testDescription,
+        usmleStep: test.usmleStep,
+        sections: formattedSections,
+        testCreatedAt: test.TestCreatedAt,
+        version: test.__v
+      }
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       error: true,
       message: "Error fetching test.",
-      errorMessage: error.message,
+      errorMessage: error.message
     });
   }
 });
+
 
 app.post("/save-test-attempt", async (req, res) => {
   try {
@@ -1221,13 +1286,11 @@ app.post("/save-test-attempt", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({
-        error: true,
-        message: "Error saving test attempt information.",
-        errorMessage: error.message,
-      });
+    res.status(500).json({
+      error: true,
+      message: "Error saving test attempt information.",
+      errorMessage: error.message,
+    });
   }
 });
 
@@ -1246,13 +1309,11 @@ app.get("/user-tests/:userId", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({
-        error: true,
-        message: "Error fetching tests.",
-        errorMessage: error.message,
-      });
+    res.status(500).json({
+      error: true,
+      message: "Error fetching tests.",
+      errorMessage: error.message,
+    });
   }
 });
 
@@ -1280,13 +1341,11 @@ app.get("/all-attempted-tests", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({
-        error: true,
-        message: "Error fetching attempted tests.",
-        errorMessage: error.message,
-      });
+    res.status(500).json({
+      error: true,
+      message: "Error fetching attempted tests.",
+      errorMessage: error.message,
+    });
   }
 });
 
@@ -1305,22 +1364,81 @@ app.delete("/delete-users-test/:testId", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({
-        error: true,
-        message: "Error deleting test.",
-        errorMessage: error.message,
-      });
+    res.status(500).json({
+      error: true,
+      message: "Error deleting test.",
+      errorMessage: error.message,
+    });
   }
 });
 
+// app.post("/attempt-test-for-user", async (req, res) => {
+//   try {
+//     const { userId, testId, testAttemptedAt, totalMarks, obtainedMarks } =
+//       req.body;
 
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({ error: true, message: "User not found." });
+//     }
+
+//     const test = await Test.findById(testId);
+//     if (!test) {
+//       return res.status(404).json({ error: true, message: "Test not found." });
+//     }
+//     let allowedMinutes;
+//     if (test.usmleStep === "1") {
+//       allowedMinutes = 420;
+//     } else if (test.usmleStep === "2") {
+//       allowedMinutes = 480;
+//     } else {
+//       return res
+//         .status(400)
+//         .json({ error: true, message: "Invalid USMLE step." });
+//     }
+
+//     const allowedTimeInMilliseconds = allowedMinutes * 60 * 1000;
+//     const testEndTime =
+//       new Date(testAttemptedAt).getTime() + allowedTimeInMilliseconds;
+//     const currentTime = new Date().getTime();
+//     if (currentTime > testEndTime) {
+//       return res.status(400).json({
+//         error: true,
+//         message: "The allowed time for this test has ended.",
+//       });
+//     }
+
+//     const testAttempt = {
+//       test: testId,
+//       questions: test.questions,
+//       createdAt: testAttemptedAt,
+//       totalScore: totalMarks,
+//       obtainedScore: obtainedMarks,
+//       usmleSteps: test.usmleStep,
+//       USMLE: test.USMLE,
+//     };
+
+//     user.attemptedTests.push(testAttempt);
+//     await user.save();
+
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Test attempt information saved successfully.",
+//       testAttempt: testAttempt,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       error: true,
+//       message: "Error saving test attempt information.",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
 
 //server
 app.listen(PORT, () => {
   console.log("==================================");
   console.log(`Server is running on port ${PORT}`);
 });
-
-

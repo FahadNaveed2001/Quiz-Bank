@@ -85,6 +85,10 @@ const testSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  testDescription: {
+    type: String,
+    required: true,
+  },
   usmleStep: {
     type: Number,
     required: true,
