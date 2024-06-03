@@ -109,6 +109,10 @@ const userSchema = new mongoose.Schema({
       },
       sectionInfo: {
         type: String,
+      },
+      testInfo: {
+        type: Boolean,
+        default: false,
       }
     },
   ],

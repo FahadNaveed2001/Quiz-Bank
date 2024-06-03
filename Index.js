@@ -1272,7 +1272,8 @@ app.post("/save-test-attempt", async (req, res) => {
         questions: questions.slice(i, i + 40),
       });
     }
-        const sectionInfo = 1;
+    
+    const sectionInfo = 1;
     
     const testAttempt = {
       test: testId,
@@ -1280,9 +1281,10 @@ app.post("/save-test-attempt", async (req, res) => {
       createdAt: testAttemptedAt,
       totalScore: totalMarks,
       obtainedScore: obtainedScore,
-      sectionInfo: sectionInfo, 
+      sectionInfo: sectionInfo,
       usmleSteps: test.usmleStep,
       USMLE: test.USMLE,
+      testInfo: false, 
     };
 
     user.attemptedTests.push(testAttempt);
@@ -1308,17 +1310,29 @@ app.post("/save-test-attempt", async (req, res) => {
 
 
 
+
 app.put("/update-users-test", async (req, res) => {
   try {
-    const { userId, testId, updatedQuestions, obtainedScore, timeInSeconds, sectionInfo } = req.body;
+    const { userId, testId, updatedQuestions, obtainedScore, timeInSeconds, sectionInfo, testInfo } = req.body;
+    
+    // Find the user by ID
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: true, message: "User not found." });
     }
+    
+    // Find the specific test attempt by test ID
     const attemptIndex = user.attemptedTests.findIndex(attempt => attempt.test.toString() === testId);
     if (attemptIndex === -1) {
       return res.status(404).json({ error: true, message: "Test attempt not found for the given user and test." });
     }
+    
+    // Check if the test attempt is locked (testInfo is true)
+    if (user.attemptedTests[attemptIndex].testInfo === true) {
+      return res.status(403).json({ error: true, message: "This test attempt cannot be edited." });
+    }
+    
+    // Validate and update the questions
     if (!updatedQuestions || !Array.isArray(updatedQuestions)) {
       return res.status(400).json({ error: true, message: "Invalid or missing 'updatedQuestions' field in the request body." });
     }
@@ -1333,14 +1347,20 @@ app.put("/update-users-test", async (req, res) => {
         }
       }
     });
+    
+    // Update other test attempt fields
     user.attemptedTests[attemptIndex].obtainedScore = obtainedScore;
     user.attemptedTests[attemptIndex].timeInSeconds = timeInSeconds;
     user.attemptedTests[attemptIndex].sectionInfo = sectionInfo;
+    user.attemptedTests[attemptIndex].testInfo = testInfo;
+    
+    // Save the updated user document
     await user.save();
+    
     res.status(200).json({
       status: "success",
       success: true,
-      message: "Selected options updated successfully.",
+      message: "Selected options and test info updated successfully.",
       testAttempt: user.attemptedTests[attemptIndex],
     });
   } catch (error) {
@@ -1352,6 +1372,8 @@ app.put("/update-users-test", async (req, res) => {
     });
   }
 });
+
+
 
 
 
