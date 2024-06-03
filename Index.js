@@ -1037,7 +1037,6 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       file,
       body: { usmleStep, testName, testDescription },
     } = req;
-
     const inputFilePath = file.path;
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(inputFilePath);
@@ -1046,7 +1045,6 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
     const sheetName = xlsxWorkbook.SheetNames[0];
     const sheet = xlsxWorkbook.Sheets[sheetName];
     const jsonData = xlsx.utils.sheet_to_json(sheet, { defval: null });
-
     const questionsToSave = jsonData.map((data, index) => {
       let convertedData = toLowerCaseKeys(data);
       convertedData = convertOptions(convertedData);
@@ -1058,9 +1056,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       convertedData.row = index + 1;
       return ensureAllFieldsPresent(convertedData);
     });
-
     const uniqueQuestions = await filterUniqueQuestions(questionsToSave);
-
     for (const image of worksheet.getImages()) {
       const { tl } = image.range;
       const img = workbook.model.media.find((m) => m.index === image.imageId);
@@ -1183,6 +1179,9 @@ app.get("/uploaded-test/:id", async (req, res) => {
         message: "Test not found.",
       });
     }
+    
+    const totalQuestion = test.questions.length;
+
     const createSections = (questions, sectionSize) => {
       const sections = [];
       for (let i = 0; i < questions.length; i += sectionSize) {
@@ -1190,6 +1189,7 @@ app.get("/uploaded-test/:id", async (req, res) => {
       }
       return sections;
     };
+
     const sections = createSections(test.questions, 40);
   
     const formattedSections = sections.map((section, index) => ({
@@ -1228,6 +1228,7 @@ app.get("/uploaded-test/:id", async (req, res) => {
         testName: test.testName,
         testDescription: test.testDescription,
         usmleStep: test.usmleStep,
+        totalQuestions: totalQuestion,
         sections: formattedSections,
         testCreatedAt: test.TestCreatedAt,
         version: test.__v,
@@ -1245,30 +1246,48 @@ app.get("/uploaded-test/:id", async (req, res) => {
 
 
 
+
 /////////////////////////////
 app.post("/save-test-attempt", async (req, res) => {
   try {
-    const { userId, testId, testAttemptedAt, totalMarks, obtainedMarks } =
-      req.body;
+    const { userId, testId, testAttemptedAt, totalMarks, obtainedScore = 0 } = req.body;
     const user = await User.findById(userId);
+    
     if (!user) {
       return res.status(404).json({ error: true, message: "User not found." });
     }
+    
     const test = await Test.findById(testId);
+    
     if (!test) {
       return res.status(404).json({ error: true, message: "Test not found." });
     }
+    
+    const questions = test.questions;
+    const sections = [];
+    
+    for (let i = 0; i < questions.length; i += 40) {
+      sections.push({
+        sectionNumber: Math.floor(i / 40) + 1,
+        questions: questions.slice(i, i + 40),
+      });
+    }
+        const sectionInfo = 1;
+    
     const testAttempt = {
       test: testId,
-      questions: test.questions,
+      sections: sections,
       createdAt: testAttemptedAt,
       totalScore: totalMarks,
-      obtainedScore: obtainedMarks,
+      obtainedScore: obtainedScore,
+      sectionInfo: sectionInfo, 
       usmleSteps: test.usmleStep,
       USMLE: test.USMLE,
     };
+
     user.attemptedTests.push(testAttempt);
     await user.save();
+    
     res.status(200).json({
       status: "success",
       success: true,
@@ -1284,6 +1303,88 @@ app.post("/save-test-attempt", async (req, res) => {
     });
   }
 });
+
+
+
+
+
+app.put("/update-users-test", async (req, res) => {
+  try {
+    const { userId, testId, updatedQuestions, obtainedScore, timeInSeconds, sectionInfo } = req.body;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: true, message: "User not found." });
+    }
+    const attemptIndex = user.attemptedTests.findIndex(attempt => attempt.test.toString() === testId);
+    if (attemptIndex === -1) {
+      return res.status(404).json({ error: true, message: "Test attempt not found for the given user and test." });
+    }
+    if (!updatedQuestions || !Array.isArray(updatedQuestions)) {
+      return res.status(400).json({ error: true, message: "Invalid or missing 'updatedQuestions' field in the request body." });
+    }
+    updatedQuestions.forEach(updatedQuestion => {
+      const { questionId, selectedOption } = updatedQuestion;
+      for (const section of user.attemptedTests[attemptIndex].sections) {
+        for (const question of section.questions) {
+          if (question._id.toString() === questionId) {
+            question.selectedOption = selectedOption;
+            break;
+          }
+        }
+      }
+    });
+    user.attemptedTests[attemptIndex].obtainedScore = obtainedScore;
+    user.attemptedTests[attemptIndex].timeInSeconds = timeInSeconds;
+    user.attemptedTests[attemptIndex].sectionInfo = sectionInfo;
+    await user.save();
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Selected options updated successfully.",
+      testAttempt: user.attemptedTests[attemptIndex],
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error updating selected options.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+
+
+app.get("/get-test-attempt/:userId/:testId", async (req, res) => {
+  try {
+    const { userId, testId } = req.params;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: true, message: "User not found." });
+    }
+    const testAttempt = user.attemptedTests.find(attempt => attempt.test.toString() === testId);
+    if (!testAttempt) {
+      return res.status(404).json({ error: true, message: "test not found" });
+    }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Test attempt fetched successfully.",
+      testAttempt: testAttempt,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error fetching test attempt.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+
+
+
 
 
 //

@@ -69,17 +69,26 @@ const userSchema = new mongoose.Schema({
       test: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Test",
+        required: true,
       },
-      questions: [
+      sections: [
         {
-          questionId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Question",
+          sectionNumber: {
+            type: Number,
+            required: true,
           },
-          selectedOption: {
-            type: String,
-            default: null,
-          },
+          questions: [
+            {
+              questionId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Question",
+              },
+              selectedOption: {
+                type: String,
+                default: null,
+              },
+            },
+          ],
         },
       ],
       createdAt: {
@@ -94,17 +103,17 @@ const userSchema = new mongoose.Schema({
         type: Number,
         required: true,
       },
-      usmleSteps: {
+      timeInSeconds: {
         type: Number,
-        required: false,
+        default: "0",
       },
-      USMLE: {
+      sectionInfo: {
         type: String,
-        required: false,
-      },
+      }
     },
   ],
 
+ 
   // temporaryAttemptedTests: [
   //   {
   //     test: {
