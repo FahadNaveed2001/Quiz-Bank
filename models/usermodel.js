@@ -68,21 +68,24 @@ const userSchema = new mongoose.Schema({
     {
       test: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Test", 
+        ref: "Test",
       },
-      // questions: [
-      //   {
-      //     questionId: {
-      //       type: mongoose.Schema.Types.ObjectId,
-      //       ref: "Question", 
-      //     },
-      //     selectedOption: String,
-      //   },
-      // ],
-      // createdAt: {
-      //   type: Date,
-      //   default: Date.now,
-      // },
+      questions: [
+        {
+          questionId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Question",
+          },
+          selectedOption: {
+            type: String,
+            default: null,
+          },
+        },
+      ],
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
       totalScore: {
         type: Number,
         required: true,
@@ -91,16 +94,46 @@ const userSchema = new mongoose.Schema({
         type: Number,
         required: true,
       },
-      // usmleSteps: {
-      //   type: Number,
-      //   required: false,
-      // },
-      // USMLE: {
-      //   type: String,
-      //   required: false,
-      // },
+      usmleSteps: {
+        type: Number,
+        required: false,
+      },
+      USMLE: {
+        type: String,
+        required: false,
+      },
     },
   ],
+
+  // temporaryAttemptedTests: [
+  //   {
+  //     test: {
+  //       type: mongoose.Schema.Types.ObjectId,
+  //       ref: "Test",
+  //     },
+  //     temporaryQuestions: [
+  //       {
+  //         questionId: {
+  //           type: mongoose.Schema.Types.ObjectId,
+  //           ref: "Q/A-MCQ",
+  //         },
+  //         selectedOption: String,
+  //       },
+  //     ],
+  //     sectionNumber: {
+  //       type: Number,
+  //       required: true,
+  //     },
+  //     obtainedScore2: {
+  //       type: Number,
+  //       required: true,
+  //     },
+  //     timeInSeconds: {
+  //       type: Number,
+  //       required: true,
+  //     },
+  //   },
+  // ],
   feedbacks: {
     type: [
       {

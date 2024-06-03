@@ -1180,10 +1180,9 @@ app.get("/uploaded-test/:id", async (req, res) => {
     if (!test) {
       return res.status(404).json({
         error: true,
-        message: "Test not found."
+        message: "Test not found.",
       });
     }
-    //create sections
     const createSections = (questions, sectionSize) => {
       const sections = [];
       for (let i = 0; i < questions.length; i += sectionSize) {
@@ -1192,39 +1191,32 @@ app.get("/uploaded-test/:id", async (req, res) => {
       return sections;
     };
     const sections = createSections(test.questions, 40);
-
-    //formate data in sections
+  
     const formattedSections = sections.map((section, index) => ({
       section: `Section ${index + 1}`,
-      questions: section.map(question => ({
-        id: question._id,
+      questions: section.map((question) => ({
+        _id: question._id,
         question: question.question,
-        options: {
-          optionOne: question.optionOne,
-          optionTwo: question.optionTwo,
-          optionThree: question.optionThree,
-          optionFour: question.optionFour,
-          optionFive: question.optionFive,
-          optionSix: question.optionSix
-        },
+        optionOne: question.optionOne,
+        optionTwo: question.optionTwo,
+        optionThree: question.optionThree,
+        optionFour: question.optionFour,
+        optionFive: question.optionFive,
+        optionSix: question.optionSix,
         correctAnswer: question.correctAnswer,
-        explanations: {
-          questionExplanation: question.questionExplanation,
-          optionOneExplanation: question.optionOneExplanation,
-          optionTwoExplanation: question.optionTwoExplanation,
-          optionThreeExplanation: question.optionThreeExplanation,
-          optionFourExplanation: question.optionFourExplanation,
-          optionFiveExplanation: question.optionFiveExplanation,
-          optionSixExplanation: question.optionSixExplanation
-        },
+        questionExplanation: question.questionExplanation,
+        optionOneExplanation: question.optionOneExplanation,
+        optionTwoExplanation: question.optionTwoExplanation,
+        optionThreeExplanation: question.optionThreeExplanation,
+        optionFourExplanation: question.optionFourExplanation,
+        optionFiveExplanation: question.optionFiveExplanation,
+        optionSixExplanation: question.optionSixExplanation,
         comments: question.comments,
-        images: {
-          image: question.image,
-          imageTwo: question.imageTwo
-        },
+        image: question.image,
+        imageTwo: question.imageTwo,
         video: question.video,
-        row: question.row
-      }))
+        row: question.row,
+      })),
     }));
 
     res.status(200).json({
@@ -1232,26 +1224,28 @@ app.get("/uploaded-test/:id", async (req, res) => {
       success: true,
       message: "Test fetched successfully.",
       data: {
-        id: test._id,
+        _id: test._id,
         testName: test.testName,
         testDescription: test.testDescription,
         usmleStep: test.usmleStep,
         sections: formattedSections,
         testCreatedAt: test.TestCreatedAt,
-        version: test.__v
-      }
+        version: test.__v,
+      },
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       error: true,
       message: "Error fetching test.",
-      errorMessage: error.message
+      errorMessage: error.message,
     });
   }
 });
 
 
+
+/////////////////////////////
 app.post("/save-test-attempt", async (req, res) => {
   try {
     const { userId, testId, testAttemptedAt, totalMarks, obtainedMarks } =
@@ -1291,6 +1285,8 @@ app.post("/save-test-attempt", async (req, res) => {
   }
 });
 
+
+//
 app.get("/user-tests/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
