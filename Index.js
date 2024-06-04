@@ -1014,7 +1014,7 @@ async function logImageName(question, imgFileName) {
   }
 }
 
-//////////new (changes) routes
+//////////admin routes
 async function filterUniqueQuestions(questions) {
   const uniqueQuestions = [];
   const questionMap = new Map();
@@ -1123,6 +1123,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
   }
 });
 
+//delete test by admin
 app.delete("/delete-test/:id", async (req, res) => {
   try {
     const testId = req.params.id;
@@ -1149,6 +1150,7 @@ app.delete("/delete-test/:id", async (req, res) => {
   }
 });
 
+//get all tests by admin
 app.get("/uploaded-tests", async (req, res) => {
   try {
     const tests = await Test.find();
@@ -1168,6 +1170,7 @@ app.get("/uploaded-tests", async (req, res) => {
   }
 });
 
+//get single test for admin
 app.get("/uploaded-test/:id", async (req, res) => {
   try {
     const testId = req.params.id;
@@ -1179,7 +1182,7 @@ app.get("/uploaded-test/:id", async (req, res) => {
         message: "Test not found.",
       });
     }
-    
+
     const totalQuestion = test.questions.length;
 
     const createSections = (questions, sectionSize) => {
@@ -1191,7 +1194,7 @@ app.get("/uploaded-test/:id", async (req, res) => {
     };
 
     const sections = createSections(test.questions, 40);
-  
+
     const formattedSections = sections.map((section, index) => ({
       section: `Section ${index + 1}`,
       questions: section.map((question) => ({
@@ -1244,37 +1247,42 @@ app.get("/uploaded-test/:id", async (req, res) => {
   }
 });
 
+/////////////////////////////user routes
 
-
-
-/////////////////////////////
+//create test
 app.post("/save-test-attempt", async (req, res) => {
   try {
-    const { userId, testId, testAttemptedAt, totalMarks, obtainedScore = 0 } = req.body;
+    const {
+      userId,
+      testId,
+      testAttemptedAt,
+      totalMarks,
+      obtainedScore = 0,
+    } = req.body;
     const user = await User.findById(userId);
-    
+
     if (!user) {
       return res.status(404).json({ error: true, message: "User not found." });
     }
-    
+
     const test = await Test.findById(testId);
-    
+
     if (!test) {
       return res.status(404).json({ error: true, message: "Test not found." });
     }
-    
+
     const questions = test.questions;
     const sections = [];
-    
+
     for (let i = 0; i < questions.length; i += 40) {
       sections.push({
         sectionNumber: Math.floor(i / 40) + 1,
         questions: questions.slice(i, i + 40),
       });
     }
-    
+
     const sectionInfo = 1;
-    
+
     const testAttempt = {
       test: testId,
       sections: sections,
@@ -1284,12 +1292,12 @@ app.post("/save-test-attempt", async (req, res) => {
       sectionInfo: sectionInfo,
       usmleSteps: test.usmleStep,
       USMLE: test.USMLE,
-      testInfo: false, 
+      testInfo: true,
     };
 
     user.attemptedTests.push(testAttempt);
     await user.save();
-    
+
     res.status(200).json({
       status: "success",
       success: true,
@@ -1306,62 +1314,64 @@ app.post("/save-test-attempt", async (req, res) => {
   }
 });
 
-
-
-
-
-
+//edit test
 app.put("/update-users-test", async (req, res) => {
   try {
-    const { userId, testId, updatedQuestions, obtainedScore, timeInSeconds, sectionInfo, testInfo } = req.body;
-    
-    // Find the user by ID
+    const {
+      userId,
+      testId,
+      updatedQuestions,
+      obtainedScore,
+      timeInSeconds,
+      sectionInfo,
+      testInfo,
+    } = req.body;
+    if (
+      !userId ||
+      !testId ||
+      !Array.isArray(updatedQuestions) ||
+      updatedQuestions.length === 0
+    ) {
+      return res
+        .status(400)
+        .json({ error: true, message: "Invalid input data." });
+    }
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: true, message: "User not found." });
     }
-    
-    // Find the specific test attempt by test ID
-    const attemptIndex = user.attemptedTests.findIndex(attempt => attempt.test.toString() === testId);
-    if (attemptIndex === -1) {
-      return res.status(404).json({ error: true, message: "Test attempt not found for the given user and test." });
+    const attempt = user.attemptedTests.find(
+      (attempt) => attempt.test.toString() === testId
+    );
+    if (!attempt) {
+      return res
+        .status(404)
+        .json({
+          error: true,
+          message: "Test attempt not found for the given user and test.",
+        });
     }
-    
-    // Check if the test attempt is locked (testInfo is true)
-    if (user.attemptedTests[attemptIndex].testInfo === true) {
-      return res.status(403).json({ error: true, message: "This test attempt cannot be edited." });
-    }
-    
-    // Validate and update the questions
-    if (!updatedQuestions || !Array.isArray(updatedQuestions)) {
-      return res.status(400).json({ error: true, message: "Invalid or missing 'updatedQuestions' field in the request body." });
-    }
-    updatedQuestions.forEach(updatedQuestion => {
-      const { questionId, selectedOption } = updatedQuestion;
-      for (const section of user.attemptedTests[attemptIndex].sections) {
-        for (const question of section.questions) {
-          if (question._id.toString() === questionId) {
-            question.selectedOption = selectedOption;
-            break;
-          }
+    updatedQuestions.forEach(({ questionId, selectedOption }) => {
+      for (const section of attempt.sections) {
+        const question = section.questions.find(
+          (question) => question._id.toString() === questionId
+        );
+        if (question) {
+          question.selectedOption = selectedOption;
         }
       }
     });
-    
-    // Update other test attempt fields
-    user.attemptedTests[attemptIndex].obtainedScore = obtainedScore;
-    user.attemptedTests[attemptIndex].timeInSeconds = timeInSeconds;
-    user.attemptedTests[attemptIndex].sectionInfo = sectionInfo;
-    user.attemptedTests[attemptIndex].testInfo = testInfo;
-    
-    // Save the updated user document
+    attempt.obtainedScore = obtainedScore;
+    attempt.timeInSeconds = timeInSeconds;
+    attempt.sectionInfo = sectionInfo;
+    attempt.testInfo = testInfo;
+    user.markModified("attemptedTests");
     await user.save();
-    
     res.status(200).json({
       status: "success",
       success: true,
       message: "Selected options and test info updated successfully.",
-      testAttempt: user.attemptedTests[attemptIndex],
+      testAttempt: attempt,
     });
   } catch (error) {
     console.error(error);
@@ -1373,10 +1383,57 @@ app.put("/update-users-test", async (req, res) => {
   }
 });
 
+// app.put("/update-users-test", async (req, res) => {
+//   try {
+//     const { userId, testId, updatedQuestions, obtainedScore, timeInSeconds, sectionInfo, testInfo } = req.body;
+//         const user = await User.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({ error: true, message: "User not found." });
+//     }
+//         const attemptIndex = user.attemptedTests.findIndex(attempt => attempt.test.toString() === testId);
+//     if (attemptIndex === -1) {
+//       return res.status(404).json({ error: true, message: "Test attempt not found for the given user and test." });
+//     }
+//         if (user.attemptedTests[attemptIndex].testInfo === false) {
+//       return res.status(403).json({ error: true, message: "this test cannot be edited." });
+//     }
+//         if (!updatedQuestions || !Array.isArray(updatedQuestions)) {
+//       return res.status(400).json({ error: true, message: "Invalid or missing 'updatedQuestions' field in the request body." });
+//     }
+//     updatedQuestions.forEach(updatedQuestion => {
+//       const { questionId, selectedOption } = updatedQuestion;
+//       for (const section of user.attemptedTests[attemptIndex].sections) {
+//         for (const question of section.questions) {
+//           if (question._id.toString() === questionId) {
+//             question.selectedOption = selectedOption;
+//             break;
+//           }
+//         }
+//       }
+//     });
+//     user.attemptedTests[attemptIndex].obtainedScore = obtainedScore;
+//     user.attemptedTests[attemptIndex].timeInSeconds = timeInSeconds;
+//     user.attemptedTests[attemptIndex].sectionInfo = sectionInfo;
+//     user.attemptedTests[attemptIndex].testInfo = testInfo;
+//     await user.save();
 
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Selected options and test info updated successfully.",
+//       testAttempt: user.attemptedTests[attemptIndex],
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       error: true,
+//       message: "Error updating selected options.",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
 
-
-
+//get single attempted test by user
 app.get("/get-test-attempt/:userId/:testId", async (req, res) => {
   try {
     const { userId, testId } = req.params;
@@ -1384,7 +1441,9 @@ app.get("/get-test-attempt/:userId/:testId", async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: true, message: "User not found." });
     }
-    const testAttempt = user.attemptedTests.find(attempt => attempt.test.toString() === testId);
+    const testAttempt = user.attemptedTests.find(
+      (attempt) => attempt.test.toString() === testId
+    );
     if (!testAttempt) {
       return res.status(404).json({ error: true, message: "test not found" });
     }
@@ -1404,12 +1463,7 @@ app.get("/get-test-attempt/:userId/:testId", async (req, res) => {
   }
 });
 
-
-
-
-
-
-//
+//get all users test 
 app.get("/user-tests/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -1422,6 +1476,83 @@ app.get("/user-tests/:userId", async (req, res) => {
       success: true,
       message: "Tests fetched successfully.",
       tests: user.attemptedTests,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error fetching tests.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+
+//get users latest test
+app.get("/users-latest-test/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId, {
+      attemptedTests: { $slice: -1 },
+    }).populate("attemptedTests.test");
+
+    if (!user) {
+      return res.status(404).json({ error: true, message: "User not found." });
+    }
+    if (user.attemptedTests.length === 0) {
+      return res.status(200).json({
+        status: "success",
+        success: true,
+        message: "User has not attempted any test",
+      });
+    }
+    const latestTest = user.attemptedTests[0];
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Latest test retrieved successfully",
+      data: latestTest,
+    });
+
+    console.log("Latest test retrieved successfully");
+  } catch (error) {
+    res
+      .status(500)
+      .json({
+        error: true,
+        message: "Error retrieving latest test of user",
+        errorMessage: error.message,
+      });
+    console.log("Error retrieving latest test of user");
+    console.error(error);
+  }
+});
+
+app.get("/user-tests-and-quizes/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const user = await User.findById(userId).populate("attemptedTests.test");
+    const userone = await User.findById(userId).populate({
+      path: "attemptedQuizzes.questions.questionId",
+      model: "Q/A-MCQ",
+    });
+    if (!user) {
+      return res.status(404).json({ error: true, message: "User not found." });
+    }
+    // const attemptedQuizzes = user.attemptedQuizzes;
+    // if (attemptedQuizzes.length === 0) {
+    //   return res.status(200).json({
+    //     status: "success",
+    //     success: true,
+    //     message: "User has not attempted any quiz",
+    //   });
+    // }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Tests and quizes fetched successfully.",
+      tests: user.attemptedTests,
+      quizes: userone.attemptedQuizzes,
     });
   } catch (error) {
     console.error(error);

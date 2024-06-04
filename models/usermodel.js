@@ -112,7 +112,7 @@ const userSchema = new mongoose.Schema({
       },
       testInfo: {
         type: Boolean,
-        default: false,
+        default: true,
       }
     },
   ],
