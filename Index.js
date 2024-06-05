@@ -83,7 +83,14 @@ connectDB();
 
 app.use(
   cors({
-    origin: ["https://zap70.com", "http://localhost:3000"],
+    // origin: ["https://zap70.com", "http://localhost:3000"],
+    origin: [
+      "*",
+      "https://zap70.com",
+      "http://localhost:3000",
+      "http://167.71.95.212:3000",
+      "http://165.232.134.133:3000",
+    ],
     credentials: true,
   })
 );
@@ -1477,7 +1484,7 @@ app.get("/user-tests/:userId", async (req, res) => {
       tests: user.attemptedTests,
       firstName: user.firstName,
       lastName: user.lastName,
-      email: user.email
+      email: user.email,
     });
   } catch (error) {
     console.error(error);
@@ -1843,7 +1850,7 @@ app.post("/approve-question/:questionId", async (req, res) => {
     if (!userQuestion) {
       return res.status(404).json({
         error: true,
-        message: `Question with ID ${questionId} not found in USERMCQ collection.`
+        message: `Question with ID ${questionId} not found in USERMCQ collection.`,
       });
     }
     const mcqQuestion = new MCQ({
@@ -1864,7 +1871,7 @@ app.post("/approve-question/:questionId", async (req, res) => {
       optionFourExplanation: userQuestion.optionFourExplanation,
       optionFiveExplanation: userQuestion.optionFiveExplanation,
       optionSixExplanation: userQuestion.optionSixExplanation,
-      comments: userQuestion.comments, 
+      comments: userQuestion.comments,
       image: null,
       imageTwo: null,
       video: null,
@@ -1879,12 +1886,15 @@ app.post("/approve-question/:questionId", async (req, res) => {
       message: `Question with ID ${questionId} posted to Q/A-MCQ collection successfully and isApproved set to true in USERMCQ.`,
       data: mcqQuestion,
     });
-    console.log(`Question with ID ${questionId} posted to Q/A-MCQ collection successfully and isApproved set to true in USERMCQ.`);
+    console.log(
+      `Question with ID ${questionId} posted to Q/A-MCQ collection successfully and isApproved set to true in USERMCQ.`
+    );
   } catch (error) {
     console.error("Error posting question to Q/A-MCQ collection:", error);
     res.status(500).json({
       error: true,
-      message: "Internal server error while posting question to Q/A-MCQ collection.",
+      message:
+        "Internal server error while posting question to Q/A-MCQ collection.",
       errorMessage: error.message,
     });
   }
@@ -1893,11 +1903,14 @@ app.post("/approve-question/:questionId", async (req, res) => {
 app.get("/users-single-question/:questionId", async (req, res) => {
   try {
     const questionId = req.params.questionId;
-    const question = await USERMCQ.findById(questionId).populate("user", "firstName");
+    const question = await USERMCQ.findById(questionId).populate(
+      "user",
+      "firstName"
+    );
     if (!question) {
       return res.status(404).json({
         error: true,
-        message: `Question with ID ${questionId} not found.`
+        message: `Question with ID ${questionId} not found.`,
       });
     }
     res.status(200).json({
@@ -1916,8 +1929,6 @@ app.get("/users-single-question/:questionId", async (req, res) => {
     });
   }
 });
-
-
 
 app.get("/question-by-user/:userId", async (req, res) => {
   try {
