@@ -97,7 +97,7 @@ const usermcqSchema = new mongoose.Schema({
   },
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Q/A-Users",
+    ref: "Q/A-User",
     required: true,
   },
 });

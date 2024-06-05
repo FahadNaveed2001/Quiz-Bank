@@ -1475,6 +1475,9 @@ app.get("/user-tests/:userId", async (req, res) => {
       success: true,
       message: "Tests fetched successfully.",
       tests: user.attemptedTests,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email
     });
   } catch (error) {
     console.error(error);
@@ -1886,6 +1889,34 @@ app.post("/approve-question/:questionId", async (req, res) => {
     });
   }
 });
+
+app.get("/users-single-question/:questionId", async (req, res) => {
+  try {
+    const questionId = req.params.questionId;
+    const question = await USERMCQ.findById(questionId).populate("user", "firstName");
+    if (!question) {
+      return res.status(404).json({
+        error: true,
+        message: `Question with ID ${questionId} not found.`
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: `Question with ID ${questionId} retrieved successfully`,
+      data: question,
+    });
+    console.log(`Question with ID ${questionId} retrieved successfully`);
+  } catch (error) {
+    console.error("Error fetching question:", error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while fetching question.",
+      errorMessage: error.message,
+    });
+  }
+});
+
 
 
 app.get("/question-by-user/:userId", async (req, res) => {

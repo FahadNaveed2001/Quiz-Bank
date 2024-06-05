@@ -98,6 +98,10 @@ const testSchema = new mongoose.Schema({
     default: Date.now,
   },
   questions: [mcqSchema],
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User' 
+  }
 });
 
 const Test = mongoose.model("Test", testSchema);
