@@ -1680,6 +1680,7 @@ app.delete("/delete-users-test/:testId", async (req, res) => {
 //   }
 // });
 
+///Crud Operation  scbnausbcouasbcoasbcoasbcosacbos
 app.post("/add-question-by-user", async (req, res) => {
   try {
     const {
@@ -1700,12 +1701,12 @@ app.post("/add-question-by-user", async (req, res) => {
       optionFourExplanation,
       optionFiveExplanation,
       optionSixExplanation,
-      userId 
+      userId,
     } = req.body;
     if (!userId) {
       return res.status(400).json({
         error: true,
-        message: "User ID is required in the request body."
+        message: "User ID is required in the request body.",
       });
     }
 
@@ -1749,6 +1750,167 @@ app.post("/add-question-by-user", async (req, res) => {
   }
 });
 
+app.get("/questions-by-user", async (req, res) => {
+  try {
+    const questions = await USERMCQ.find({}).populate("user", "firstName");
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "All questions fetched successfully",
+      data: questions,
+    });
+    console.log("All questions fetched successfully:", questions);
+  } catch (error) {
+    console.error("Error fetching questions:", error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while fetching questions.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+app.put("/update-user-questions/:questionId", async (req, res) => {
+  try {
+    const questionId = req.params.questionId;
+    const updatedData = req.body;
+    delete updatedData.user;
+    const updatedQuestion = await USERMCQ.findByIdAndUpdate(
+      questionId,
+      updatedData,
+      { new: true }
+    );
+    if (!updatedQuestion) {
+      return res.status(404).json({
+        error: true,
+        message: `Question with ID ${questionId} not found.`,
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: `Question with ID ${questionId} updated successfully`,
+      data: updatedQuestion,
+    });
+    console.log(`Question with ID ${questionId} updated successfully`);
+  } catch (error) {
+    console.error("Error updating question:", error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while updating question.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+app.delete("/question-by-user/:questionId", async (req, res) => {
+  try {
+    const questionId = req.params.questionId;
+    const deletedQuestion = await USERMCQ.findByIdAndDelete(questionId);
+
+    if (!deletedQuestion) {
+      return res.status(404).json({
+        error: true,
+        message: `Question with ID ${questionId} not found.`,
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: `Question with ID ${questionId} deleted successfully`,
+      data: deletedQuestion,
+    });
+    console.log(`Question with ID ${questionId} deleted successfully`);
+  } catch (error) {
+    console.error("Error deleting question:", error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while deleting question.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+app.post("/approve-question/:questionId", async (req, res) => {
+  try {
+    const questionId = req.params.questionId;
+    const userQuestion = await USERMCQ.findById(questionId);
+
+    if (!userQuestion) {
+      return res.status(404).json({
+        error: true,
+        message: `Question with ID ${questionId} not found in USERMCQ collection.`
+      });
+    }
+    const mcqQuestion = new MCQ({
+      usmleStep: userQuestion.usmleStep,
+      USMLE: userQuestion.USMLE,
+      question: userQuestion.question,
+      optionOne: userQuestion.optionOne,
+      optionTwo: userQuestion.optionTwo,
+      optionThree: userQuestion.optionThree,
+      optionFour: userQuestion.optionFour,
+      optionFive: userQuestion.optionFive,
+      optionSix: userQuestion.optionSix,
+      correctAnswer: userQuestion.correctAnswer,
+      questionExplanation: userQuestion.questionExplanation,
+      optionOneExplanation: userQuestion.optionOneExplanation,
+      optionTwoExplanation: userQuestion.optionTwoExplanation,
+      optionThreeExplanation: userQuestion.optionThreeExplanation,
+      optionFourExplanation: userQuestion.optionFourExplanation,
+      optionFiveExplanation: userQuestion.optionFiveExplanation,
+      optionSixExplanation: userQuestion.optionSixExplanation,
+      comments: userQuestion.comments, 
+      image: null,
+      imageTwo: null,
+      video: null,
+    });
+    await mcqQuestion.save();
+    userQuestion.isApproved = true;
+    await userQuestion.save();
+
+    res.status(201).json({
+      status: "success",
+      success: true,
+      message: `Question with ID ${questionId} posted to Q/A-MCQ collection successfully and isApproved set to true in USERMCQ.`,
+      data: mcqQuestion,
+    });
+    console.log(`Question with ID ${questionId} posted to Q/A-MCQ collection successfully and isApproved set to true in USERMCQ.`);
+  } catch (error) {
+    console.error("Error posting question to Q/A-MCQ collection:", error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while posting question to Q/A-MCQ collection.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+
+app.get("/question-by-user/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const questions = await USERMCQ.find({ user: userId }).populate(
+      "user",
+      "firstName"
+    );
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: `Questions of user ${userId} fetched successfully`,
+      data: questions,
+    });
+    console.log(`Questions of user ${userId} fetched successfully:`, questions);
+  } catch (error) {
+    console.error("Error fetching questions:", error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while fetching questions.",
+      errorMessage: error.message,
+    });
+  }
+});
 
 //server
 app.listen(PORT, () => {

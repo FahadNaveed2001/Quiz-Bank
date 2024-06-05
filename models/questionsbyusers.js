@@ -91,9 +91,13 @@ const usermcqSchema = new mongoose.Schema({
   video: {
     type: String,
   },
+  isApproved: {
+    type: Boolean,
+    default: false,
+  },
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Q/A-User",
+    ref: "Q/A-Users",
     required: true,
   },
 });
