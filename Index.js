@@ -57,6 +57,7 @@ const {
 const {
   getAllFeedbacks,
 } = require("./userroutes/feedbackroutes/adminfeedbacks");
+const USERMCQ = require("./models/questionsbyusers");
 // const { deleteMCQImage } = require("./mcqroutes/deletemcqimage");
 
 //app and port
@@ -1344,12 +1345,10 @@ app.put("/update-users-test", async (req, res) => {
       (attempt) => attempt.test.toString() === testId
     );
     if (!attempt) {
-      return res
-        .status(404)
-        .json({
-          error: true,
-          message: "Test attempt not found for the given user and test.",
-        });
+      return res.status(404).json({
+        error: true,
+        message: "Test attempt not found for the given user and test.",
+      });
     }
     updatedQuestions.forEach(({ questionId, selectedOption }) => {
       for (const section of attempt.sections) {
@@ -1463,7 +1462,7 @@ app.get("/get-test-attempt/:userId/:testId", async (req, res) => {
   }
 });
 
-//get all users test 
+//get all users test
 app.get("/user-tests/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -1486,7 +1485,6 @@ app.get("/user-tests/:userId", async (req, res) => {
     });
   }
 });
-
 
 //get users latest test
 app.get("/users-latest-test/:userId", async (req, res) => {
@@ -1516,13 +1514,11 @@ app.get("/users-latest-test/:userId", async (req, res) => {
 
     console.log("Latest test retrieved successfully");
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        error: true,
-        message: "Error retrieving latest test of user",
-        errorMessage: error.message,
-      });
+    res.status(500).json({
+      error: true,
+      message: "Error retrieving latest test of user",
+      errorMessage: error.message,
+    });
     console.log("Error retrieving latest test of user");
     console.error(error);
   }
@@ -1683,6 +1679,76 @@ app.delete("/delete-users-test/:testId", async (req, res) => {
 //     });
 //   }
 // });
+
+app.post("/add-question-by-user", async (req, res) => {
+  try {
+    const {
+      usmleStep,
+      USMLE,
+      question,
+      optionOne,
+      optionTwo,
+      optionThree,
+      optionFour,
+      optionFive,
+      optionSix,
+      correctAnswer,
+      questionExplanation,
+      optionOneExplanation,
+      optionTwoExplanation,
+      optionThreeExplanation,
+      optionFourExplanation,
+      optionFiveExplanation,
+      optionSixExplanation,
+      userId 
+    } = req.body;
+    if (!userId) {
+      return res.status(400).json({
+        error: true,
+        message: "User ID is required in the request body."
+      });
+    }
+
+    const mcq = new USERMCQ({
+      usmleStep,
+      USMLE,
+      question,
+      optionOne,
+      optionTwo,
+      optionThree,
+      optionFour,
+      optionFive,
+      optionSix,
+      correctAnswer,
+      questionExplanation,
+      optionOneExplanation,
+      optionTwoExplanation,
+      optionThreeExplanation,
+      optionFourExplanation,
+      optionFiveExplanation,
+      optionSixExplanation,
+      user: userId,
+    });
+
+    await mcq.save();
+
+    res.status(201).json({
+      status: "success",
+      success: true,
+      message: "MCQ added successfully",
+      data: mcq,
+    });
+    console.log("MCQ added successfully:", mcq);
+  } catch (error) {
+    console.error("Error adding MCQ:", error);
+    res.status(500).json({
+      error: true,
+      message: "Internal server error while adding MCQ.",
+      errorMessage: error.message,
+    });
+  }
+});
+
 
 //server
 app.listen(PORT, () => {
