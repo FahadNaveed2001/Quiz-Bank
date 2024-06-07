@@ -24,7 +24,7 @@ const verifyToken = (req, res, next) => {
 };
 
 const routesWithoutToken = [
-  "/forgot-password",
+  "/forget-password",
   "/user-login",
   "/verify-email",
   "/user-signup",

@@ -58,6 +58,7 @@ const {
   getAllFeedbacks,
 } = require("./userroutes/feedbackroutes/adminfeedbacks");
 const USERMCQ = require("./models/questionsbyusers");
+const ABOUTUS = require("./models/aboutus");
 // const { deleteMCQImage } = require("./mcqroutes/deletemcqimage");
 
 //app and port
@@ -88,7 +89,7 @@ app.use(
       "*",
       "https://zap70.com",
       "http://localhost:3000",
-      "http://167.71.95.212:3000",
+      // "http://167.71.95.212:3000",
       "http://165.232.134.133:3000",
     ],
     credentials: true,
@@ -1951,6 +1952,62 @@ app.get("/question-by-user/:userId", async (req, res) => {
       message: "Internal server error while fetching questions.",
       errorMessage: error.message,
     });
+  }
+});
+
+
+
+///////////////////////////////////////////////////about us
+
+app.post("/add-aboutus", async (req, res) => {
+  try {
+    const aboutUsText = req.body.aboutUsText;
+    if (!aboutUsText) {
+      return res.status(400).json({ error: "aboutUsText is required" });
+    }
+    await ABOUTUS.deleteMany({});
+    const newAboutUs = new ABOUTUS({ aboutUsText });
+    await newAboutUs.save();
+    res.status(201).json(newAboutUs);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to add About Us content" });
+    console.log(error)
+  }
+});
+
+
+app.put("/edit-aboutus/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { aboutUsText } = req.body;
+    if (!aboutUsText) {
+      return res.status(400).json({ error: "aboutUsText is required" });
+    }
+    const existingAboutUs = await ABOUTUS.findById(id);
+    if (!existingAboutUs) {
+      return res.status(404).json({ error: "About Us content not found" });
+    }
+    existingAboutUs.aboutUsText = aboutUsText;
+    existingAboutUs.createdAt = new Date();
+    await existingAboutUs.save();
+    res.status(200).json(existingAboutUs);
+  } catch (error) {
+    console.error("Error editing About Us content:", error);
+    res.status(500).json({ error: "Failed to edit About Us content" });
+  }
+});
+
+app.get("/about-us", async (req, res) => {
+  try {
+        const aboutUsContent = await ABOUTUS.findOne();
+
+    if (!aboutUsContent) {
+      return res.status(404).json({ error: "About Us content not found" });
+    }
+    res.status(200).json(aboutUsContent);
+  } catch (error) {
+    console.error("Error fetching About Us content:", error);
+    res.status(500).json({ error: "Failed to fetch About Us content" });
   }
 });
 
