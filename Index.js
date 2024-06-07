@@ -59,6 +59,9 @@ const {
 } = require("./userroutes/feedbackroutes/adminfeedbacks");
 const USERMCQ = require("./models/questionsbyusers");
 const ABOUTUS = require("./models/aboutus");
+const addAboutUs = require("./aboutusroutes/addaboutus");
+const editAboutUs = require("./aboutusroutes/editaboutus");
+const getAboutUs = require("./aboutusroutes/getaboutus");
 // const { deleteMCQImage } = require("./mcqroutes/deletemcqimage");
 
 //app and port
@@ -1256,8 +1259,7 @@ app.get("/uploaded-test/:id", async (req, res) => {
   }
 });
 
-/////////////////////////////user routes
-
+//user routes
 //create test
 app.post("/save-test-attempt", async (req, res) => {
   try {
@@ -1389,56 +1391,6 @@ app.put("/update-users-test", async (req, res) => {
     });
   }
 });
-
-// app.put("/update-users-test", async (req, res) => {
-//   try {
-//     const { userId, testId, updatedQuestions, obtainedScore, timeInSeconds, sectionInfo, testInfo } = req.body;
-//         const user = await User.findById(userId);
-//     if (!user) {
-//       return res.status(404).json({ error: true, message: "User not found." });
-//     }
-//         const attemptIndex = user.attemptedTests.findIndex(attempt => attempt.test.toString() === testId);
-//     if (attemptIndex === -1) {
-//       return res.status(404).json({ error: true, message: "Test attempt not found for the given user and test." });
-//     }
-//         if (user.attemptedTests[attemptIndex].testInfo === false) {
-//       return res.status(403).json({ error: true, message: "this test cannot be edited." });
-//     }
-//         if (!updatedQuestions || !Array.isArray(updatedQuestions)) {
-//       return res.status(400).json({ error: true, message: "Invalid or missing 'updatedQuestions' field in the request body." });
-//     }
-//     updatedQuestions.forEach(updatedQuestion => {
-//       const { questionId, selectedOption } = updatedQuestion;
-//       for (const section of user.attemptedTests[attemptIndex].sections) {
-//         for (const question of section.questions) {
-//           if (question._id.toString() === questionId) {
-//             question.selectedOption = selectedOption;
-//             break;
-//           }
-//         }
-//       }
-//     });
-//     user.attemptedTests[attemptIndex].obtainedScore = obtainedScore;
-//     user.attemptedTests[attemptIndex].timeInSeconds = timeInSeconds;
-//     user.attemptedTests[attemptIndex].sectionInfo = sectionInfo;
-//     user.attemptedTests[attemptIndex].testInfo = testInfo;
-//     await user.save();
-
-//     res.status(200).json({
-//       status: "success",
-//       success: true,
-//       message: "Selected options and test info updated successfully.",
-//       testAttempt: user.attemptedTests[attemptIndex],
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({
-//       error: true,
-//       message: "Error updating selected options.",
-//       errorMessage: error.message,
-//     });
-//   }
-// });
 
 //get single attempted test by user
 app.get("/get-test-attempt/:userId/:testId", async (req, res) => {
@@ -1626,72 +1578,8 @@ app.delete("/delete-users-test/:testId", async (req, res) => {
   }
 });
 
-// app.post("/attempt-test-for-user", async (req, res) => {
-//   try {
-//     const { userId, testId, testAttemptedAt, totalMarks, obtainedMarks } =
-//       req.body;
 
-//     const user = await User.findById(userId);
-//     if (!user) {
-//       return res.status(404).json({ error: true, message: "User not found." });
-//     }
-
-//     const test = await Test.findById(testId);
-//     if (!test) {
-//       return res.status(404).json({ error: true, message: "Test not found." });
-//     }
-//     let allowedMinutes;
-//     if (test.usmleStep === "1") {
-//       allowedMinutes = 420;
-//     } else if (test.usmleStep === "2") {
-//       allowedMinutes = 480;
-//     } else {
-//       return res
-//         .status(400)
-//         .json({ error: true, message: "Invalid USMLE step." });
-//     }
-
-//     const allowedTimeInMilliseconds = allowedMinutes * 60 * 1000;
-//     const testEndTime =
-//       new Date(testAttemptedAt).getTime() + allowedTimeInMilliseconds;
-//     const currentTime = new Date().getTime();
-//     if (currentTime > testEndTime) {
-//       return res.status(400).json({
-//         error: true,
-//         message: "The allowed time for this test has ended.",
-//       });
-//     }
-
-//     const testAttempt = {
-//       test: testId,
-//       questions: test.questions,
-//       createdAt: testAttemptedAt,
-//       totalScore: totalMarks,
-//       obtainedScore: obtainedMarks,
-//       usmleSteps: test.usmleStep,
-//       USMLE: test.USMLE,
-//     };
-
-//     user.attemptedTests.push(testAttempt);
-//     await user.save();
-
-//     res.status(200).json({
-//       status: "success",
-//       success: true,
-//       message: "Test attempt information saved successfully.",
-//       testAttempt: testAttempt,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({
-//       error: true,
-//       message: "Error saving test attempt information.",
-//       errorMessage: error.message,
-//     });
-//   }
-// });
-
-///Crud Operation  scbnausbcouasbcoasbcoasbcosacbos
+////////////////////////
 app.post("/add-question-by-user", async (req, res) => {
   try {
     const {
@@ -1957,59 +1845,10 @@ app.get("/question-by-user/:userId", async (req, res) => {
 
 
 
-///////////////////////////////////////////////////about us
-
-app.post("/add-aboutus", async (req, res) => {
-  try {
-    const aboutUsText = req.body.aboutUsText;
-    if (!aboutUsText) {
-      return res.status(400).json({ error: "aboutUsText is required" });
-    }
-    await ABOUTUS.deleteMany({});
-    const newAboutUs = new ABOUTUS({ aboutUsText });
-    await newAboutUs.save();
-    res.status(201).json(newAboutUs);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to add About Us content" });
-    console.log(error)
-  }
-});
-
-
-app.put("/edit-aboutus/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { aboutUsText } = req.body;
-    if (!aboutUsText) {
-      return res.status(400).json({ error: "aboutUsText is required" });
-    }
-    const existingAboutUs = await ABOUTUS.findById(id);
-    if (!existingAboutUs) {
-      return res.status(404).json({ error: "About Us content not found" });
-    }
-    existingAboutUs.aboutUsText = aboutUsText;
-    existingAboutUs.createdAt = new Date();
-    await existingAboutUs.save();
-    res.status(200).json(existingAboutUs);
-  } catch (error) {
-    console.error("Error editing About Us content:", error);
-    res.status(500).json({ error: "Failed to edit About Us content" });
-  }
-});
-
-app.get("/about-us", async (req, res) => {
-  try {
-        const aboutUsContent = await ABOUTUS.findOne();
-
-    if (!aboutUsContent) {
-      return res.status(404).json({ error: "About Us content not found" });
-    }
-    res.status(200).json(aboutUsContent);
-  } catch (error) {
-    console.error("Error fetching About Us content:", error);
-    res.status(500).json({ error: "Failed to fetch About Us content" });
-  }
-});
+//aboutus routes
+app.post("/add-aboutus", addAboutUs);
+app.put("/edit-aboutus/:id", editAboutUs);
+app.get("/about-us", getAboutUs);
 
 //server
 app.listen(PORT, () => {
