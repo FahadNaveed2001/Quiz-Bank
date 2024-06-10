@@ -175,6 +175,14 @@ const userSchema = new mongoose.Schema({
     ],
     default: [],
   },
+
+  notifications: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Q/A-notifications",
+    },
+  ],
+  
 });
 
 const User = mongoose.model("Q/A-User", userSchema);
