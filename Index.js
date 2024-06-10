@@ -2033,7 +2033,6 @@ app.delete("/delete-notifications/:notificationId", async (req, res) => {
   }
 });
 
-
 app.put("/update-user-notifications/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
@@ -2048,10 +2047,13 @@ app.put("/update-user-notifications/:userId", async (req, res) => {
     user.notifications.forEach(notification => {
       notification.isViewed = true;
     });
+
+    // Save the updated user object back to the database
     await user.save();
+
     res.status(200).json({
       success: true,
-      message: "All notifications updated successfully",
+      message: "All notifications for the user updated successfully",
     });
   } catch (error) {
     console.error(error);
@@ -2063,6 +2065,11 @@ app.put("/update-user-notifications/:userId", async (req, res) => {
     });
   }
 });
+
+
+
+
+
 
 //server
 app.listen(PORT, () => {

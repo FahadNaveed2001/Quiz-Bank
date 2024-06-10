@@ -177,16 +177,9 @@ const userSchema = new mongoose.Schema({
 
   notifications: [
     {
-      notification: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Q/A-notifications",
-      },
-      isViewed: {
-        type: Boolean,
-        default: false,
-      },
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Q/A-notifications",
     },
-
   ],
 });
 
