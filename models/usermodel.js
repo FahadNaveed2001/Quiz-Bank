@@ -113,11 +113,10 @@ const userSchema = new mongoose.Schema({
       testInfo: {
         type: Boolean,
         default: true,
-      }
+      },
     },
   ],
 
- 
   // temporaryAttemptedTests: [
   //   {
   //     test: {
@@ -178,11 +177,17 @@ const userSchema = new mongoose.Schema({
 
   notifications: [
     {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Q/A-notifications",
+      notification: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Q/A-notifications",
+      },
+      isViewed: {
+        type: Boolean,
+        default: false,
+      },
     },
+
   ],
-  
 });
 
 const User = mongoose.model("Q/A-User", userSchema);

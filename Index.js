@@ -1140,14 +1140,14 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
 app.delete("/delete-test/:id", async (req, res) => {
   try {
     const testId = req.params.id;
-        const deletedTest = await Test.findByIdAndDelete(testId);
+    const deletedTest = await Test.findByIdAndDelete(testId);
     if (!deletedTest) {
       return res.status(404).json({
         error: true,
         message: "Test not found.",
       });
     }
-        await User.updateMany(
+    await User.updateMany(
       { "attemptedTests.test": testId },
       { $pull: { attemptedTests: { test: testId } } }
     );
@@ -1155,7 +1155,8 @@ app.delete("/delete-test/:id", async (req, res) => {
     res.status(200).json({
       status: "success",
       success: true,
-      message: "Test deleted from test collection and all users' attempted tests.",
+      message:
+        "Test deleted from test collection and all users' attempted tests.",
       data: deletedTest,
     });
   } catch (error) {
@@ -1168,6 +1169,33 @@ app.delete("/delete-test/:id", async (req, res) => {
   }
 });
 
+
+// app.delete("/delete-users-test/:testId", async (req, res) => {
+//   try {
+//     const { testId } = req.params;
+//     const test = await Test.findById(testId);
+//     if (!test) {
+//       return res.status(404).json({ error: true, message: "Test not found." });
+//     }
+//     await Test.findByIdAndDelete(testId);
+//     await User.updateMany(
+//       { "attemptedTests.test": testId },
+//       { $pull: { attemptedTests: { test: testId } } }
+//     );
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Test deleted successfully.",
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       error: true,
+//       message: "Error deleting test.",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
 
 //get all tests by admin
 app.get("/uploaded-tests", async (req, res) => {
@@ -1585,7 +1613,6 @@ app.delete("/delete-users-test/:testId", async (req, res) => {
   }
 });
 
-
 ////////////////////////
 app.post("/add-question-by-user", async (req, res) => {
   try {
@@ -1850,53 +1877,68 @@ app.get("/question-by-user/:userId", async (req, res) => {
   }
 });
 
-
-
 //aboutus routes
 app.post("/add-aboutus", addAboutUs);
 app.put("/edit-aboutus/:id", editAboutUs);
 app.get("/about-us", getAboutUs);
 
-
 //notification
 app.post("/add-notifications", async (req, res) => {
   const { notificationTitle, notificationBody } = req.body;
-
   if (!notificationTitle || !notificationBody) {
-    return res.status(400).json({ error: "All fields are required" });
-  }
+    return res.status(400).json({
+      success: false,
 
+      error: true,
+      message: "All fields are required",
+    });
+  }
   try {
-    // Create and save the new notification
     const newNotification = new NOTIFICATION({
       notificationTitle,
       notificationBody,
     });
-
     const savedNotification = await newNotification.save();
-
-    // Find all users and update their notifications
     const users = await User.find({});
-    const userIds = users.map(user => user._id);
+    const userIds = users.map((user) => user._id);
     savedNotification.users = userIds;
     await savedNotification.save();
     await User.updateMany(
       {},
       { $push: { notifications: savedNotification._id } }
     );
-    res.status(201).json(savedNotification);
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Notification added successfully",
+      savedNotification: savedNotification,
+    });
   } catch (error) {
-    res.status(500).json({ error: "Failed to save notification" });
+    res.status(500).json({
+      success: false,
+      error: true,
+      message: "Failed to save notification",
+      errorMessage: error.message,
+    });
   }
 });
-
 
 app.get("/get-notifications", async (req, res) => {
   try {
     const notifications = await NOTIFICATION.find();
-    res.status(200).json(notifications);
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Notification retrived successfully",
+      notifications: notifications,
+    });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch notifications" });
+    res.status(500).json({
+      success: false,
+
+      error: true,
+      message: "Failed to fetch notifications",
+    });
   }
 });
 
@@ -1904,14 +1946,27 @@ app.get("/users-notifications/:userId", async (req, res) => {
   const userId = req.params.userId;
 
   try {
-    const user = await User.findById(userId).populate('notifications');
+    const user = await User.findById(userId).populate("notifications");
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({
+        success: false,
+        error: true,
+        message: "User Not Found",
+      });
     }
-    res.status(200).json(user.notifications);
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Users notifications retrived successfully",
+      notifications: user.notifications,
+    });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch user's notifications" });
+    res.status(500).json({
+      success: false,
+      error: true,
+      message: "Failed to fetch user's notifications",
+    });
   }
 });
 
@@ -1921,20 +1976,93 @@ app.delete("/users/:userId/notifications/:notificationId", async (req, res) => {
   try {
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({
+        success: false,
+        error: true,
+        message: "User not found",
+      });
     }
     user.notifications.pull(notificationId);
     await user.save();
     await NOTIFICATION.findByIdAndUpdate(notificationId, {
-      $pull: { users: userId }
+      $pull: { users: userId },
     });
-
-    res.status(200).json({ message: "Notification removed from user" });
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Notification removed from user",
+    });
   } catch (error) {
-    res.status(500).json({ error: "Failed to remove notification from user" });
+    res.status(500).json({
+      success: false,
+      error: true,
+      message: "Failed to remove notification from user",
+    });
   }
 });
 
+app.delete("/delete-notifications/:notificationId", async (req, res) => {
+  const { notificationId } = req.params;
+
+  try {
+    const notification = await NOTIFICATION.findById(notificationId);
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        error: true,
+        message: "Notification not found",
+      });
+    }
+    await User.updateMany(
+      { notifications: notificationId },
+      { $pull: { notifications: notificationId } }
+    );
+    await NOTIFICATION.deleteOne({ _id: notificationId });
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Notification deleted for all users",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: true,
+      message: "Failed to delete notification",
+    });
+  }
+});
+
+
+app.put("/update-user-notifications/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: true,
+        message: "User not found",
+      });
+    }
+    user.notifications.forEach(notification => {
+      notification.isViewed = true;
+    });
+    await user.save();
+    res.status(200).json({
+      success: true,
+      message: "All notifications updated successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      error: true,
+      message: "Failed to update notifications",
+      errorMessage: error.message,
+    });
+  }
+});
 
 //server
 app.listen(PORT, () => {
