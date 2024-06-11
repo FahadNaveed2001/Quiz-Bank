@@ -1175,7 +1175,6 @@ app.delete("/delete-test/:id", async (req, res) => {
   }
 });
 
-
 // app.delete("/delete-users-test/:testId", async (req, res) => {
 //   try {
 //     const { testId } = req.params;
@@ -1892,11 +1891,37 @@ app.get("/about-us", getAboutUs);
 app.post("/add-notifications", addNotification);
 app.get("/get-notifications", getNotifications);
 app.get("/users-notifications/:userId", getUserNotifications);
-app.delete("/users/:userId/notifications/:notificationId", deleteUserNotification);
+app.delete(
+  "/users/:userId/notifications/:notificationId",
+  deleteUserNotification
+);
 app.delete("/delete-notifications/:notificationId", deleteNotification);
 app.put("/update-user-notifications/:userId", updateUserNotifications);
 
-
+app.get("stats-counts", async (req, res) => {
+  try {
+    const users = await User.find({});
+    const mcqs = await MCQ.countDocuments();
+    const usersmcq = await USERMCQ.countDocuments();
+    const test = await Test.countDocuments();
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Stats Counted",
+      users: users,
+      totalMcqs: mcqs,
+      totalUserMcqs: usersmcq,
+      totalTests: test,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: true,
+      message: "Failed to get stats count",
+      errorMessage: error.message,
+    });
+  }
+});
 //server
 app.listen(PORT, () => {
   console.log("==================================");
