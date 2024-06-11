@@ -19,10 +19,6 @@ const notificationSchema = new mongoose.Schema({
       ref: "Q/A-User",
     },
   ],
-  isViewed: {
-    type: Boolean,
-    default: false,
-  },
 });
 
 const NOTIFICATION = mongoose.model("Q/A-notifications", notificationSchema);

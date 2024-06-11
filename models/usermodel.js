@@ -1,5 +1,16 @@
 const mongoose = require("mongoose");
 
+const notificationSchema = new mongoose.Schema({
+  notification: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Q/A-notifications",
+  },
+  isViewed: {
+    type: Boolean,
+    default: false,
+  },
+});
+
 const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
@@ -117,35 +128,6 @@ const userSchema = new mongoose.Schema({
     },
   ],
 
-  // temporaryAttemptedTests: [
-  //   {
-  //     test: {
-  //       type: mongoose.Schema.Types.ObjectId,
-  //       ref: "Test",
-  //     },
-  //     temporaryQuestions: [
-  //       {
-  //         questionId: {
-  //           type: mongoose.Schema.Types.ObjectId,
-  //           ref: "Q/A-MCQ",
-  //         },
-  //         selectedOption: String,
-  //       },
-  //     ],
-  //     sectionNumber: {
-  //       type: Number,
-  //       required: true,
-  //     },
-  //     obtainedScore2: {
-  //       type: Number,
-  //       required: true,
-  //     },
-  //     timeInSeconds: {
-  //       type: Number,
-  //       required: true,
-  //     },
-  //   },
-  // ],
   feedbacks: {
     type: [
       {
@@ -175,14 +157,8 @@ const userSchema = new mongoose.Schema({
     default: [],
   },
 
-  notifications: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Q/A-notifications",
-    },
-  ],
+  notifications: [notificationSchema],
 });
 
 const User = mongoose.model("Q/A-User", userSchema);
-
 module.exports = User;

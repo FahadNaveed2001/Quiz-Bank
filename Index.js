@@ -93,7 +93,7 @@ app.use(
       "*",
       "https://zap70.com",
       "http://localhost:3000",
-      // "http://167.71.95.212:3000",
+      "http://167.71.95.212:3000",
       "http://165.232.134.133:3000",
     ],
     credentials: true,
@@ -1883,12 +1883,52 @@ app.put("/edit-aboutus/:id", editAboutUs);
 app.get("/about-us", getAboutUs);
 
 //notification
+// app.post("/add-notifications", async (req, res) => {
+//   const { notificationTitle, notificationBody } = req.body;
+//   if (!notificationTitle || !notificationBody) {
+//     return res.status(400).json({
+//       success: false,
+
+//       error: true,
+//       message: "All fields are required",
+//     });
+//   }
+//   try {
+//     const newNotification = new NOTIFICATION({
+//       notificationTitle,
+//       notificationBody,
+//     });
+//     const savedNotification = await newNotification.save();
+//     const users = await User.find({});
+//     const userIds = users.map((user) => user._id);
+//     savedNotification.users = userIds;
+//     await savedNotification.save();
+//     await User.updateMany(
+//       {},
+//       { $push: { notifications: savedNotification._id } }
+//     );
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Notification added successfully",
+//       savedNotification: savedNotification,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       error: true,
+//       message: "Failed to save notification",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
+
+
 app.post("/add-notifications", async (req, res) => {
   const { notificationTitle, notificationBody } = req.body;
   if (!notificationTitle || !notificationBody) {
     return res.status(400).json({
       success: false,
-
       error: true,
       message: "All fields are required",
     });
@@ -1901,12 +1941,15 @@ app.post("/add-notifications", async (req, res) => {
     const savedNotification = await newNotification.save();
     const users = await User.find({});
     const userIds = users.map((user) => user._id);
+
     savedNotification.users = userIds;
     await savedNotification.save();
+
     await User.updateMany(
       {},
-      { $push: { notifications: savedNotification._id } }
+      { $push: { notifications: { notification: savedNotification._id } } }
     );
+
     res.status(200).json({
       status: "success",
       success: true,
@@ -1946,7 +1989,7 @@ app.get("/users-notifications/:userId", async (req, res) => {
   const userId = req.params.userId;
 
   try {
-    const user = await User.findById(userId).populate("notifications");
+    const user = await User.findById(userId).populate("notifications.notification");
 
     if (!user) {
       return res.status(404).json({
@@ -1958,7 +2001,7 @@ app.get("/users-notifications/:userId", async (req, res) => {
     res.status(200).json({
       status: "success",
       success: true,
-      message: "Users notifications retrived successfully",
+      message: "User's notifications retrieved successfully",
       notifications: user.notifications,
     });
   } catch (error) {
@@ -1966,9 +2009,39 @@ app.get("/users-notifications/:userId", async (req, res) => {
       success: false,
       error: true,
       message: "Failed to fetch user's notifications",
+      errorMessage: error.message,
     });
   }
 });
+
+
+// app.get("/users-notifications/:userId", async (req, res) => {
+//   const userId = req.params.userId;
+
+//   try {
+//     const user = await User.findById(userId).populate("notifications");
+
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: true,
+//         message: "User Not Found",
+//       });
+//     }
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Users notifications retrived successfully",
+//       notifications: user.notifications,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       error: true,
+//       message: "Failed to fetch user's notifications",
+//     });
+//   }
+// });
 
 app.delete("/users/:userId/notifications/:notificationId", async (req, res) => {
   const { userId, notificationId } = req.params;
@@ -2000,7 +2073,6 @@ app.delete("/users/:userId/notifications/:notificationId", async (req, res) => {
     });
   }
 });
-
 app.delete("/delete-notifications/:notificationId", async (req, res) => {
   const { notificationId } = req.params;
 
@@ -2014,11 +2086,14 @@ app.delete("/delete-notifications/:notificationId", async (req, res) => {
         message: "Notification not found",
       });
     }
+
     await User.updateMany(
-      { notifications: notificationId },
-      { $pull: { notifications: notificationId } }
+      { 'notifications.notification': notificationId },
+      { $pull: { notifications: { notification: notificationId } } }
     );
+
     await NOTIFICATION.deleteOne({ _id: notificationId });
+
     res.status(200).json({
       status: "success",
       success: true,
@@ -2029,9 +2104,42 @@ app.delete("/delete-notifications/:notificationId", async (req, res) => {
       success: false,
       error: true,
       message: "Failed to delete notification",
+      errorMessage: error.message,
     });
   }
 });
+
+// app.delete("/delete-notifications/:notificationId", async (req, res) => {
+//   const { notificationId } = req.params;
+
+//   try {
+//     const notification = await NOTIFICATION.findById(notificationId);
+
+//     if (!notification) {
+//       return res.status(404).json({
+//         success: false,
+//         error: true,
+//         message: "Notification not found",
+//       });
+//     }
+//     await User.updateMany(
+//       { notifications: notificationId },
+//       { $pull: { notifications: notificationId } }
+//     );
+//     await NOTIFICATION.deleteOne({ _id: notificationId });
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Notification deleted for all users",
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       error: true,
+//       message: "Failed to delete notification",
+//     });
+//   }
+// });
 
 app.put("/update-user-notifications/:userId", async (req, res) => {
   const { userId } = req.params;
@@ -2044,11 +2152,11 @@ app.put("/update-user-notifications/:userId", async (req, res) => {
         message: "User not found",
       });
     }
-    user.notifications.forEach(notification => {
+
+    user.notifications.forEach((notification) => {
       notification.isViewed = true;
     });
 
-    // Save the updated user object back to the database
     await user.save();
 
     res.status(200).json({
@@ -2065,6 +2173,40 @@ app.put("/update-user-notifications/:userId", async (req, res) => {
     });
   }
 });
+
+
+// app.put("/update-user-notifications/:userId", async (req, res) => {
+//   const { userId } = req.params;
+//   try {
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: true,
+//         message: "User not found",
+//       });
+//     }
+//     user.notifications.forEach(notification => {
+//       notification.isViewed = true;
+//     });
+
+//     // Save the updated user object back to the database
+//     await user.save();
+
+//     res.status(200).json({
+//       success: true,
+//       message: "All notifications for the user updated successfully",
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       success: false,
+//       error: true,
+//       message: "Failed to update notifications",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
 
 
 
