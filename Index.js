@@ -1304,6 +1304,68 @@ app.get("/uploaded-test/:id", async (req, res) => {
   }
 });
 
+app.get("/manage-test/:id", async (req, res) => {
+  try {
+    const testId = req.params.id;
+    const test = await Test.findById(testId);
+
+    if (!test) {
+      return res.status(404).json({
+        error: true,
+        message: "Test not found.",
+      });
+    }
+
+    const formattedQuestions = test.questions.map((question) => ({
+      _id: question._id,
+      question: question.question,
+      optionOne: question.optionOne,
+      optionTwo: question.optionTwo,
+      optionThree: question.optionThree,
+      optionFour: question.optionFour,
+      optionFive: question.optionFive,
+      optionSix: question.optionSix,
+      correctAnswer: question.correctAnswer,
+      questionExplanation: question.questionExplanation,
+      optionOneExplanation: question.optionOneExplanation,
+      optionTwoExplanation: question.optionTwoExplanation,
+      optionThreeExplanation: question.optionThreeExplanation,
+      optionFourExplanation: question.optionFourExplanation,
+      optionFiveExplanation: question.optionFiveExplanation,
+      optionSixExplanation: question.optionSixExplanation,
+      comments: question.comments,
+      image: question.image,
+      imageTwo: question.imageTwo,
+      video: question.video,
+      row: question.row,
+    }));
+
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Test fetched successfully.",
+      data: {
+        _id: test._id,
+        testName: test.testName,
+        testDescription: test.testDescription,
+        usmleStep: test.usmleStep,
+        totalQuestions: test.questions.length,
+        questions: formattedQuestions,
+        testCreatedAt: test.TestCreatedAt,
+        version: test.__v,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      message: "Error fetching test.",
+      errorMessage: error.message,
+    });
+  }
+});
+
+
 //user routes
 //create test
 app.post("/save-test-attempt", async (req, res) => {
