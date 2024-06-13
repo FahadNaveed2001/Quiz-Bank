@@ -117,9 +117,13 @@ app.use(
   express.static(path.join(__dirname, "uploads", "videos"))
 );
 app.use(
-  "/uploads/videos",
+  "/uploads/testimages",
   express.static(path.join(__dirname, "uploads", "testimages"))
 );
+// app.use(
+//   "/uploads/testvideos",
+//   express.static(path.join(__dirname, "uploads", "testvideos"))
+// );
 
 //Jwt Secret
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
@@ -1050,6 +1054,7 @@ async function filterUniqueQuestions(questions) {
   }
   return uniqueQuestions;
 }
+
 app.post("/upload-test", upload.single("file"), async (req, res) => {
   try {
     const {
@@ -1343,7 +1348,7 @@ app.post("/save-test-attempt", async (req, res) => {
       sectionInfo: sectionInfo,
       usmleSteps: test.usmleStep,
       USMLE: test.USMLE,
-      testInfo: true,
+      testInfo: false,
     };
 
     user.attemptedTests.push(testAttempt);
@@ -1898,19 +1903,24 @@ app.delete(
 app.delete("/delete-notifications/:notificationId", deleteNotification);
 app.put("/update-user-notifications/:userId", updateUserNotifications);
 
-app.get("stats-counts", async (req, res) => {
+app.get("/stats-counts", async (req, res) => {
   try {
     const users = await User.find({});
     const mcqs = await MCQ.countDocuments();
-    const usersmcq = await USERMCQ.countDocuments();
+    const totalUserMcqs = await USERMCQ.countDocuments();
+    const approvedUserMcqs = await USERMCQ.countDocuments({ isApproved: true });
+    const unapprovedUserMcqs = await USERMCQ.countDocuments({ isApproved: false });
     const test = await Test.countDocuments();
+
     res.status(200).json({
       status: "success",
       success: true,
       message: "Stats Counted",
       users: users,
       totalMcqs: mcqs,
-      totalUserMcqs: usersmcq,
+      totalUserMcqs: totalUserMcqs,
+      UserApprovedQuestions: approvedUserMcqs,
+      UserPEndingQuestions: unapprovedUserMcqs,
       totalTests: test,
     });
   } catch (error) {
@@ -1922,6 +1932,186 @@ app.get("stats-counts", async (req, res) => {
     });
   }
 });
+
+
+//////
+app.put(
+  "/edit-question/:testId/:questionId",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "imageTwo", maxCount: 1 },
+    // { name: "video", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      const { testId, questionId } = req.params;
+      const updatedQuestionData = req.body;
+      const test = await Test.findOne({
+        _id: testId,
+        "questions._id": questionId,
+      });
+      if (!test) {
+        return res.status(404).json({
+          status: "error",
+          message: "Test or Question not found",
+        });
+      }
+      const question = test.questions.id(questionId);
+      Object.assign(question, updatedQuestionData);
+      if (req.files["image"]) {
+        const imageFile = req.files["image"][0];
+        const imageFileName = `${test.testName}_${
+          test.usmleStep
+        }_${Date.now()}_${path.basename(imageFile.originalname)}`;
+        const imageFilePath = path.join(
+          __dirname,
+          "uploads",
+          "testimages",
+          imageFileName
+        );
+        if (question.image) {
+          const oldImagePath = path.join(
+            __dirname,
+            "uploads",
+            "testimages",
+            question.image
+          );
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        }
+        fs.renameSync(imageFile.path, imageFilePath);
+        question.image = imageFileName;
+      }
+      if (req.files["imageTwo"]) {
+        const imageTwoFile = req.files["imageTwo"][0];
+        const imageTwoFileName = `${test.testName}_${
+          test.usmleStep
+        }_${Date.now()}_${path.basename(imageTwoFile.originalname)}`;
+        const imageTwoFilePath = path.join(
+          __dirname,
+          "uploads",
+          "testimages",
+          imageTwoFileName
+        );
+        if (question.imageTwo) {
+          const oldImageTwoPath = path.join(
+            __dirname,
+            "uploads",
+            "testimages",
+            question.imageTwo
+          );
+          if (fs.existsSync(oldImageTwoPath)) {
+            fs.unlinkSync(oldImageTwoPath);
+          }
+        }
+
+        fs.renameSync(imageTwoFile.path, imageTwoFilePath);
+        question.imageTwo = imageTwoFileName;
+      }
+      // if (req.files['video']) {
+      //   const videoFile = req.files['video'][0];
+      //   const videoFileName = `${test.testName}_${test.usmleStep}_${Date.now()}_${path.basename(videoFile.originalname)}`;
+      //   const videoFilePath = path.join(__dirname, 'uploads', 'testvideos', videoFileName);
+      //   if (question.video) {
+      //     const oldVideoPath = path.join(__dirname, 'uploads', 'testvideos', question.video);
+      //     if (fs.existsSync(oldVideoPath)) {
+      //       fs.unlinkSync(oldVideoPath);
+      //     }
+      //   }
+
+      //   fs.renameSync(videoFile.path, videoFilePath);
+      //   question.video = videoFileName;
+      // }
+      await test.save();
+
+      res.status(200).json({
+        status: "success",
+        message: "Question updated successfully",
+        data: question,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({
+        status: "error",
+        message: "Error updating question",
+        errorMessage: error.message,
+      });
+    }
+  }
+);
+
+app.delete("/delete-question/:testId/:questionId", async (req, res) => {
+  try {
+    const { testId, questionId } = req.params;
+    const test = await Test.findById(testId);
+    if (!test) {
+      return res.status(404).json({
+        status: "error",
+        message: "Test not found",
+      });
+    }
+    const questionIndex = test.questions.findIndex(
+      (q) => q._id.toString() === questionId
+    );
+    if (questionIndex === -1) {
+      return res.status(404).json({
+        status: "error",
+        message: "Question not found in the test",
+      });
+    }
+    test.questions.splice(questionIndex, 1);
+    await test.save();
+    res.status(200).json({
+      status: "success",
+      message: "Question deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      status: "error",
+      message: "Error deleting question",
+      errorMessage: error.message,
+    });
+  }
+});
+
+app.get("/get-question/:testId/:questionId", async (req, res) => {
+  try {
+    const { testId, questionId } = req.params;
+    const test = await Test.findById(testId);
+    if (!test) {
+      return res.status(404).json({
+        error: true,
+        success: false,
+        message: "Test not found",
+      });
+    }
+    const question = test.questions.find(
+      (q) => q._id.toString() === questionId
+    );
+    if (!question) {
+      return res.status(404).json({
+        error: true,
+        success: false,
+        message: "Question not found in the test",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      data: question,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: true,
+      success: false,
+      message: "Error fetching question details",
+      errorMessage: error.message,
+    });
+  }
+});
+
 //server
 app.listen(PORT, () => {
   console.log("==================================");
