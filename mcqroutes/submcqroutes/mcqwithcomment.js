@@ -1,9 +1,17 @@
 const MCQ = require("../../models/mcqmodel");
+const Test = require("../../models/test");
 
 const getMCQsWithComments = async (req, res) => {
   try {
+    const tests = await Test.find(); 
+    let questionsWithComments = [];
+
     const mcqsWithComments = await MCQ.find({
       comments: { $exists: true, $not: { $size: 0 } },
+    });
+    tests.forEach(test => {
+      const questions = test.questions.filter(question => question.comments.length > 0);
+      questionsWithComments = questionsWithComments.concat(questions);
     });
     if (mcqsWithComments.length === 0) {
       return res
@@ -15,6 +23,7 @@ const getMCQsWithComments = async (req, res) => {
       success: true,
       message: "Now showing MCQs which have comments",
       data: mcqsWithComments,
+      testQuestionWithComments: questionsWithComments,
     });
     console.log("Now showing MCQs which have comments");
     console.log(mcqsWithComments);
@@ -34,3 +43,5 @@ const getMCQsWithComments = async (req, res) => {
 module.exports = {
   getMCQsWithComments,
 };
+
+

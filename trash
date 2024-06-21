@@ -1,91 +1,79 @@
-app.post("/filemcq", upload.single("file"), async (req, res) => {
+app.post("/upload-test", upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({
-        error: true,
-        message: "No file uploaded",
-      });
+    const {
+      file,
+      body: { usmleStep, testName, testDescription },
+    } = req;
+
+    const inputFilePath = file.path;
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(inputFilePath);
+    const worksheet = workbook.worksheets[0];
+
+    // Convert Excel file to JSON using xlsx
+    const xlsxWorkbook = xlsx.readFile(inputFilePath);
+    const sheetName = xlsxWorkbook.SheetNames[0];
+    const sheet = xlsxWorkbook.Sheets[sheetName];
+    const jsonData = xlsx.utils.sheet_to_json(sheet, { defval: null });
+
+    // Array to hold references to saved TestQuestion objects
+    const savedQuestions = [];
+
+    // Process each question and save it as a TestQuestion
+    for (const data of jsonData) {
+      let convertedData = toLowerCaseKeys(data);
+      convertedData = convertOptions(convertedData);
+      if (!Array.isArray(convertedData.comments)) {
+        convertedData.comments = [];
+      }
+      convertedData.questionExplanation = convertedData.explanation;
+      delete convertedData.explanation;
+      convertedData.row = jsonData.indexOf(data) + 1;
+
+      // Handle image upload if needed
+      const imgFileName = await handleImageUpload(worksheet, convertedData, testName, usmleStep);
+      if (imgFileName) {
+        if (convertedData.row === 8) {
+          convertedData.image = imgFileName;
+        } else if (convertedData.row === 10) {
+          convertedData.imageTwo = imgFileName;
+        }
+      }
+
+      const newQuestion = new TestQuestion(convertedData);
+      const savedQuestion = await newQuestion.save();
+      savedQuestions.push(savedQuestion._id); // Store ObjectId reference
     }
 
-    const filePath = path.join(__dirname, "uploads", req.file.filename);
-
-    const excelData = excelToJson({
-      sourceFile: filePath,
-      sheets: [
-        {
-          name: "Sheet1",
-          header: {
-            rows: 1,
-          },
-          columnToKey: {
-            A: "usmleStep",
-            B: "USMLE",
-            C: "question",
-            D: "optionOne",
-            E: "optionTwo",
-            F: "optionThree",
-            G: "optionFour",
-            H: "optionFive",
-            I: "optionSix",
-            J: "correctAnswer",
-            K: "questionExplanation",
-            L: "optionOneExplanation",
-            M: "optionTwoExplanation",
-            N: "optionThreeExplanation",
-            O: "optionFourExplanation",
-            P: "optionFiveExplanation",
-            Q: "optionSixExplanation",
-          },
-        },
-      ],
+    // Save references to TestQuestion ObjectId in Test collection
+    const newTest = new Test({
+      testName,
+      usmleStep,
+      testDescription,
+      questions: savedQuestions,
     });
+    const savedTest = await newTest.save();
 
-    const mcqData = excelData.Sheet1.map((row) => ({
-      usmleStep: row.usmleStep,
-      USMLE: row.USMLE,
-      question: row.question,
-      optionOne: row.optionOne,
-      optionTwo: row.optionTwo,
-      optionThree: row.optionThree,
-      optionFour: row.optionFour,
-      optionFive: row.optionFive,
-      optionSix: row.optionSix,
-      correctAnswer: row.correctAnswer,
-      questionExplanation: row.questionExplanation,
-      optionOneExplanation: row.optionOneExplanation,
-      optionTwoExplanation: row.optionTwoExplanation,
-      optionThreeExplanation: row.optionThreeExplanation,
-      optionFourExplanation: row.optionFourExplanation,
-      optionFiveExplanation: row.optionFiveExplanation,
-      optionSixExplanation: row.optionSixExplanation,
-    }));
-
-    await MCQ.insertMany(mcqData);
-
+    // Respond with success message
     res.status(200).json({
       status: "success",
       success: true,
-      message: "MCQs uploaded and processed successfully",
+      message: "Questions saved in db",
+      data: savedTest,
     });
 
-    deleteExcel(req.file.filename);
+    // Cleanup: delete uploaded file
+    fs.unlink(inputFilePath, (err) => {
+      if (err) {
+        console.error("Error deleting the file:", err);
+      }
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       error: true,
-      message: "Error processing MCQ file",
+      message: "Error saving questions",
       errorMessage: error.message,
     });
   }
 });
-
-const deleteExcel = (filename) => {
-  const filePath = path.join(__dirname, "uploads", filename);
-  fs.unlink(filePath, (err) => {
-    if (err) {
-      console.error("Error deleting Excel file:", err);
-    } else {
-      console.log("Excel file deleted successfully.");
-    }
-  });
-};

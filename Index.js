@@ -69,6 +69,7 @@ const getUserNotifications = require("./notifications/getusernotification");
 const deleteUserNotification = require("./notifications/deleteusernotification");
 const deleteNotification = require("./notifications/deletenotification");
 const updateUserNotifications = require("./notifications/updatenotification");
+const Question = require("./models/testquestions");
 // const { deleteMCQImage } = require("./mcqroutes/deletemcqimage");
 
 //app and port
@@ -150,7 +151,7 @@ app.get("/", (req, res) => {
 //multer storage
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 524288000 },
+  // limits: { fileSize: 524288000 },
 });
 
 //mcq routes
@@ -1061,6 +1062,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       file,
       body: { usmleStep, testName, testDescription },
     } = req;
+
     const inputFilePath = file.path;
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(inputFilePath);
@@ -1069,7 +1071,7 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
     const sheetName = xlsxWorkbook.SheetNames[0];
     const sheet = xlsxWorkbook.Sheets[sheetName];
     const jsonData = xlsx.utils.sheet_to_json(sheet, { defval: null });
-    const questionsToSave = jsonData.map((data, index) => {
+    const uniqueQuestions = jsonData.map((data, index) => {
       let convertedData = toLowerCaseKeys(data);
       convertedData = convertOptions(convertedData);
       if (!Array.isArray(convertedData.comments)) {
@@ -1078,9 +1080,30 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
       convertedData.questionExplanation = convertedData.explanation;
       delete convertedData.explanation;
       convertedData.row = index + 1;
+      convertedData.testName = testName;
       return ensureAllFieldsPresent(convertedData);
     });
-    const uniqueQuestions = await filterUniqueQuestions(questionsToSave);
+    let test = await Test.findOne({ testName, usmleStep });
+    if (!test) {
+      test = new Test({
+        testName,
+        usmleStep,
+        testDescription,
+      });
+    }
+    const savedQuestions = await Promise.all(uniqueQuestions.map(async (questionData) => {
+      let question = await Question.findOne({ testId: test._id, row: questionData.row });
+      if (!question) {
+        question = new Question({
+          testId: test._id,
+          ...questionData,
+        });
+        await question.save();
+      }
+
+      return question._id;
+    }));
+    const imageUploadPromises = [];
     for (const image of worksheet.getImages()) {
       const { tl } = image.range;
       const img = workbook.model.media.find((m) => m.index === image.imageId);
@@ -1093,45 +1116,26 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
           imgFileName
         );
         fs.writeFileSync(imgFilePath, img.buffer);
-        const question = uniqueQuestions.find((q) => q.row === tl.nativeRow);
+        const question = await Question.findOne({ testId: test._id, row: tl.nativeRow });
         if (question) {
           if (tl.nativeCol === 8) {
             question.image = imgFileName;
           } else if (tl.nativeCol === 10) {
             question.imageTwo = imgFileName;
           }
-          await logImageName(question, imgFileName);
+          imageUploadPromises.push(question.save());
         }
       }
     }
-
-    const test = await Test.findOne({ testName, usmleStep });
-    if (test) {
-      test.questions = uniqueQuestions;
-      test.testDescription = testDescription;
-      await test.save();
-      res.status(200).json({
-        status: "success",
-        success: true,
-        message: "questions saved",
-        data: test,
-      });
-    } else {
-      const newTest = new Test({
-        testName,
-        usmleStep,
-        testDescription,
-        questions: uniqueQuestions,
-      });
-      await newTest.save();
-      res.status(200).json({
-        status: "success",
-        success: true,
-        message: "questions saved in db",
-        data: newTest,
-      });
-    }
-
+    await Promise.all(imageUploadPromises);
+    test.questions = savedQuestions;
+    await test.save();
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Questions and images saved in db",
+      data: test,
+    });
     fs.unlink(inputFilePath, (err) => {
       if (err) {
         console.error("Error deleting the file:", err);
@@ -1141,11 +1145,12 @@ app.post("/upload-test", upload.single("file"), async (req, res) => {
     console.error(error);
     res.status(500).json({
       error: true,
-      message: "Error saving questions",
+      message: "Error saving questions and images",
       errorMessage: error.message,
     });
   }
 });
+
 
 //delete test by admin
 app.delete("/delete-test/:id", async (req, res) => {
@@ -1158,23 +1163,23 @@ app.delete("/delete-test/:id", async (req, res) => {
         message: "Test not found.",
       });
     }
+    await Question.deleteMany({ testId: testId });
     await User.updateMany(
       { "attemptedTests.test": testId },
       { $pull: { attemptedTests: { test: testId } } }
     );
-
     res.status(200).json({
       status: "success",
       success: true,
-      message:
-        "Test deleted from test collection and all users' attempted tests.",
+      message: "Test and associated questions deleted successfully.",
       data: deletedTest,
     });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({
       error: true,
-      message: "Error deleting test.",
+      message: "Error deleting test and associated questions.",
       errorMessage: error.message,
     });
   }
@@ -1208,40 +1213,73 @@ app.delete("/delete-test/:id", async (req, res) => {
 // });
 
 //get all tests by admin
-app.get("/uploaded-tests", async (req, res) => {
+
+
+// app.get("/uploaded-tests", async (req, res) => {
+//   try {
+//     const tests = await Test.find().populate('questions');
+
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Tests fetched successfully.",
+//       data: tests,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       error: true,
+//       message: "Error fetching tests.",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
+
+app.get('/uploaded-tests', async (req, res) => {
   try {
-    const tests = await Test.find();
+    const tests = await Test.aggregate([
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questions',
+          foreignField: '_id',
+          as: 'questions',
+        },
+      },
+      {
+        $addFields: {
+          totalQuestions: { $size: '$questions' },
+        },
+      },
+    ]);
+
     res.status(200).json({
-      status: "success",
+      status: 'success',
       success: true,
-      message: "Tests fetched successfully.",
+      message: 'Tests fetched successfully.',
       data: tests,
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({
       error: true,
-      message: "Error fetching tests.",
+      message: 'Error fetching tests.',
       errorMessage: error.message,
     });
   }
 });
-
 //get single test for admin
 app.get("/uploaded-test/:id", async (req, res) => {
   try {
     const testId = req.params.id;
-    const test = await Test.findById(testId);
-
+    const test = await Test.findById(testId).populate('questions');
     if (!test) {
       return res.status(404).json({
         error: true,
         message: "Test not found.",
       });
     }
-
     const totalQuestion = test.questions.length;
-
     const createSections = (questions, sectionSize) => {
       const sections = [];
       for (let i = 0; i < questions.length; i += sectionSize) {
@@ -1249,9 +1287,7 @@ app.get("/uploaded-test/:id", async (req, res) => {
       }
       return sections;
     };
-
     const sections = createSections(test.questions, 40);
-
     const formattedSections = sections.map((section, index) => ({
       section: `Section ${index + 1}`,
       questions: section.map((question) => ({
@@ -1304,10 +1340,75 @@ app.get("/uploaded-test/:id", async (req, res) => {
   }
 });
 
+// app.get("/manage-test/:id", async (req, res) => {
+//   try {
+//     const testId = req.params.id;
+//     const test = await Test.findById(testId);
+
+//     if (!test) {
+//       return res.status(404).json({
+//         error: true,
+//         message: "Test not found.",
+//       });
+//     }
+
+//     const formattedQuestions = test.questions.map((question) => ({
+//       _id: question._id,
+//       question: question.question,
+//       optionOne: question.optionOne,
+//       optionTwo: question.optionTwo,
+//       optionThree: question.optionThree,
+//       optionFour: question.optionFour,
+//       optionFive: question.optionFive,
+//       optionSix: question.optionSix,
+//       correctAnswer: question.correctAnswer,
+//       questionExplanation: question.questionExplanation,
+//       optionOneExplanation: question.optionOneExplanation,
+//       optionTwoExplanation: question.optionTwoExplanation,
+//       optionThreeExplanation: question.optionThreeExplanation,
+//       optionFourExplanation: question.optionFourExplanation,
+//       optionFiveExplanation: question.optionFiveExplanation,
+//       optionSixExplanation: question.optionSixExplanation,
+//       comments: question.comments,
+//       image: question.image,
+//       imageTwo: question.imageTwo,
+//       video: question.video,
+//       row: question.row,
+//     }));
+
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Test fetched successfully.",
+//       data: {
+//         _id: test._id,
+//         testName: test.testName,
+//         testDescription: test.testDescription,
+//         usmleStep: test.usmleStep,
+//         totalQuestions: test.questions.length,
+//         questions: formattedQuestions,
+//         testCreatedAt: test.TestCreatedAt,
+//         version: test.__v,
+//       },
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       error: true,
+//       message: "Error fetching test.",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
+
+
+//user routes
+//create test
+
 app.get("/manage-test/:id", async (req, res) => {
   try {
     const testId = req.params.id;
-    const test = await Test.findById(testId);
+    const test = await Test.findById(testId).populate('questions');
 
     if (!test) {
       return res.status(404).json({
@@ -1315,7 +1416,6 @@ app.get("/manage-test/:id", async (req, res) => {
         message: "Test not found.",
       });
     }
-
     const formattedQuestions = test.questions.map((question) => ({
       _id: question._id,
       question: question.question,
@@ -1339,7 +1439,6 @@ app.get("/manage-test/:id", async (req, res) => {
       video: question.video,
       row: question.row,
     }));
-
     res.status(200).json({
       status: "success",
       success: true,
@@ -1366,8 +1465,72 @@ app.get("/manage-test/:id", async (req, res) => {
 });
 
 
-//user routes
-//create test
+// app.post("/save-test-attempt", async (req, res) => {
+//   try {
+//     const {
+//       userId,
+//       testId,
+//       testAttemptedAt,
+//       totalMarks,
+//       obtainedScore = 0,
+//     } = req.body;
+//     const user = await User.findById(userId);
+
+//     if (!user) {
+//       return res.status(404).json({ error: true, message: "User not found." });
+//     }
+
+//     const test = await Test.findById(testId);
+
+//     if (!test) {
+//       return res.status(404).json({ error: true, message: "Test not found." });
+//     }
+
+//     const questions = test.questions;
+//     const sections = [];
+
+//     for (let i = 0; i < questions.length; i += 40) {
+//       sections.push({
+//         sectionNumber: Math.floor(i / 40) + 1,
+//         questions: questions.slice(i, i + 40),
+//       });
+//     }
+
+//     const sectionInfo = 1;
+
+//     const testAttempt = {
+//       test: testId,
+//       sections: sections,
+//       createdAt: testAttemptedAt,
+//       totalScore: totalMarks,
+//       obtainedScore: obtainedScore,
+//       sectionInfo: sectionInfo,
+//       usmleSteps: test.usmleStep,
+//       USMLE: test.USMLE,
+//       testInfo: false,
+//     };
+
+//     user.attemptedTests.push(testAttempt);
+//     await user.save();
+
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Test attempt information saved successfully.",
+//       testAttempt: testAttempt,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       error: true,
+//       message: "Error saving test attempt information.",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
+
+//edit test
+
 app.post("/save-test-attempt", async (req, res) => {
   try {
     const {
@@ -1377,21 +1540,18 @@ app.post("/save-test-attempt", async (req, res) => {
       totalMarks,
       obtainedScore = 0,
     } = req.body;
-    const user = await User.findById(userId);
 
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: true, message: "User not found." });
     }
 
     const test = await Test.findById(testId);
-
     if (!test) {
       return res.status(404).json({ error: true, message: "Test not found." });
     }
-
-    const questions = test.questions;
+    const questions = await Question.find({ _id: { $in: test.questions } });
     const sections = [];
-
     for (let i = 0; i < questions.length; i += 40) {
       sections.push({
         sectionNumber: Math.floor(i / 40) + 1,
@@ -1400,7 +1560,6 @@ app.post("/save-test-attempt", async (req, res) => {
     }
 
     const sectionInfo = 1;
-
     const testAttempt = {
       test: testId,
       sections: sections,
@@ -1432,7 +1591,6 @@ app.post("/save-test-attempt", async (req, res) => {
   }
 });
 
-//edit test
 app.put("/update-users-test", async (req, res) => {
   try {
     const {
@@ -1556,6 +1714,57 @@ app.get("/user-tests/:userId", async (req, res) => {
   }
 });
 
+// app.get('/user-tests/:userId', async (req, res) => {
+//   try {
+//     const userId = req.params.userId;
+//     const user = await User.findById(userId).populate({
+//       path: 'attemptedTests.test',
+//       populate: {
+//         path: 'questions',
+//         model: 'Question',
+//       },
+//     });
+
+//     if (!user) {
+//       return res.status(404).json({ error: true, message: 'User not found.' });
+//     }
+//     const tests = user.attemptedTests.map((attemptedTest) => ({
+//       test: {
+//         _id: attemptedTest.test._id,
+//         testName: attemptedTest.test.testName,
+//         testDescription: attemptedTest.test.testDescription,
+//         usmleStep: attemptedTest.test.usmleStep,
+//         questions: attemptedTest.test.questions,
+//       },
+//       createdAt: attemptedTest.createdAt,
+//       totalScore: attemptedTest.totalScore,
+//       obtainedScore: attemptedTest.obtainedScore,
+//       sectionInfo: attemptedTest.sectionInfo,
+//       usmleSteps: attemptedTest.usmleSteps,
+//       USMLE: attemptedTest.USMLE,
+//       testInfo: attemptedTest.testInfo,
+//     }));
+
+//     res.status(200).json({
+//       status: 'success',
+//       success: true,
+//       message: 'Tests fetched successfully.',
+//       tests: tests,
+//       firstName: user.firstName,
+//       lastName: user.lastName,
+//       email: user.email,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       error: true,
+//       message: 'Error fetching tests.',
+//       errorMessage: error.message,
+//     });
+//   }
+// });
+
+
 //get users latest test
 app.get("/users-latest-test/:userId", async (req, res) => {
   try {
@@ -1593,6 +1802,68 @@ app.get("/users-latest-test/:userId", async (req, res) => {
     console.error(error);
   }
 });
+
+
+// app.get('/users-latest-test/:userId', async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+
+//     const user = await User.findById(userId, { attemptedTests: { $slice: -1 } })
+//       .populate({
+//         path: 'attemptedTests.test',
+//         populate: {
+//           path: 'questions',
+//           model: 'Question', 
+//         },
+//       });
+
+//     if (!user) {
+//       return res.status(404).json({ error: true, message: 'User not found.' });
+//     }
+
+//     if (user.attemptedTests.length === 0) {
+//       return res.status(200).json({
+//         status: 'success',
+//         success: true,
+//         message: 'User has not attempted any test',
+//       });
+//     }
+
+//     const latestTest = user.attemptedTests[0];
+
+//     res.status(200).json({
+//       status: 'success',
+//       success: true,
+//       message: 'Latest test retrieved successfully',
+//       data: {
+//         test: {
+//           _id: latestTest.test._id,
+//           testName: latestTest.test.testName,
+//           testDescription: latestTest.test.testDescription,
+//           usmleStep: latestTest.test.usmleStep,
+//           questions: latestTest.test.questions, // Already populated with full Question objects
+//         },
+//         createdAt: latestTest.createdAt,
+//         totalScore: latestTest.totalScore,
+//         obtainedScore: latestTest.obtainedScore,
+//         sectionInfo: latestTest.sectionInfo,
+//         usmleSteps: latestTest.usmleSteps,
+//         USMLE: latestTest.USMLE,
+//         testInfo: latestTest.testInfo,
+//       },
+//     });
+
+//     console.log('Latest test retrieved successfully');
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       error: true,
+//       message: 'Error retrieving latest test of user',
+//       errorMessage: error.message,
+//     });
+//     console.log('Error retrieving latest test of user');
+//   }
+// });
 
 app.get("/user-tests-and-quizes/:userId", async (req, res) => {
   try {
@@ -1997,8 +2268,112 @@ app.get("/stats-counts", async (req, res) => {
 
 
 //////
+// app.put(
+//   "/edit-question/:testId/:questionId",
+//   upload.fields([
+//     { name: "image", maxCount: 1 },
+//     { name: "imageTwo", maxCount: 1 },
+//     // { name: "video", maxCount: 1 },
+//   ]),
+//   async (req, res) => {
+//     try {
+//       const { testId, questionId } = req.params;
+//       const updatedQuestionData = req.body;
+//       const test = await Test.findOne({
+//         _id: testId,
+//         "questions._id": questionId,
+//       });
+//       if (!test) {
+//         return res.status(404).json({
+//           status: "error",
+//           message: "Test or Question not found",
+//         });
+//       }
+//       const question = test.questions.id(questionId);
+//       Object.assign(question, updatedQuestionData);
+//       if (req.files["image"]) {
+//         const imageFile = req.files["image"][0];
+//         const imageFileName = `${test.testName}_${test.usmleStep
+//           }_${Date.now()}_${path.basename(imageFile.originalname)}`;
+//         const imageFilePath = path.join(
+//           __dirname,
+//           "uploads",
+//           "testimages",
+//           imageFileName
+//         );
+//         if (question.image) {
+//           const oldImagePath = path.join(
+//             __dirname,
+//             "uploads",
+//             "testimages",
+//             question.image
+//           );
+//           if (fs.existsSync(oldImagePath)) {
+//             fs.unlinkSync(oldImagePath);
+//           }
+//         }
+//         fs.renameSync(imageFile.path, imageFilePath);
+//         question.image = imageFileName;
+//       }
+//       if (req.files["imageTwo"]) {
+//         const imageTwoFile = req.files["imageTwo"][0];
+//         const imageTwoFileName = `${test.testName}_${test.usmleStep
+//           }_${Date.now()}_${path.basename(imageTwoFile.originalname)}`;
+//         const imageTwoFilePath = path.join(
+//           __dirname,
+//           "uploads",
+//           "testimages",
+//           imageTwoFileName
+//         );
+//         if (question.imageTwo) {
+//           const oldImageTwoPath = path.join(
+//             __dirname,
+//             "uploads",
+//             "testimages",
+//             question.imageTwo
+//           );
+//           if (fs.existsSync(oldImageTwoPath)) {
+//             fs.unlinkSync(oldImageTwoPath);
+//           }
+//         }
+
+//         fs.renameSync(imageTwoFile.path, imageTwoFilePath);
+//         question.imageTwo = imageTwoFileName;
+//       }
+//       // if (req.files['video']) {
+//       //   const videoFile = req.files['video'][0];
+//       //   const videoFileName = `${test.testName}_${test.usmleStep}_${Date.now()}_${path.basename(videoFile.originalname)}`;
+//       //   const videoFilePath = path.join(__dirname, 'uploads', 'testvideos', videoFileName);
+//       //   if (question.video) {
+//       //     const oldVideoPath = path.join(__dirname, 'uploads', 'testvideos', question.video);
+//       //     if (fs.existsSync(oldVideoPath)) {
+//       //       fs.unlinkSync(oldVideoPath);
+//       //     }
+//       //   }
+
+//       //   fs.renameSync(videoFile.path, videoFilePath);
+//       //   question.video = videoFileName;
+//       // }
+//       await test.save();
+
+//       res.status(200).json({
+//         status: "success",
+//         message: "Question updated successfully",
+//         data: question,
+//       });
+//     } catch (error) {
+//       console.error(error);
+//       res.status(500).json({
+//         status: "error",
+//         message: "Error updating question",
+//         errorMessage: error.message,
+//       });
+//     }
+//   }
+// );
+
 app.put(
-  "/edit-question/:testId/:questionId",
+  "/edit-question/:questionId",
   upload.fields([
     { name: "image", maxCount: 1 },
     { name: "imageTwo", maxCount: 1 },
@@ -2006,38 +2381,25 @@ app.put(
   ]),
   async (req, res) => {
     try {
-      const { testId, questionId } = req.params;
+      const { questionId } = req.params;
       const updatedQuestionData = req.body;
-      const test = await Test.findOne({
-        _id: testId,
-        "questions._id": questionId,
-      });
-      if (!test) {
+      const question = await Question.findOneAndUpdate(
+        { _id: questionId },
+        { $set: updatedQuestionData },
+        { new: true }
+      );
+      if (!question) {
         return res.status(404).json({
           status: "error",
-          message: "Test or Question not found",
+          message: "Question not found",
         });
       }
-      const question = test.questions.id(questionId);
-      Object.assign(question, updatedQuestionData);
       if (req.files["image"]) {
         const imageFile = req.files["image"][0];
-        const imageFileName = `${test.testName}_${
-          test.usmleStep
-        }_${Date.now()}_${path.basename(imageFile.originalname)}`;
-        const imageFilePath = path.join(
-          __dirname,
-          "uploads",
-          "testimages",
-          imageFileName
-        );
+        const imageFileName = `${question.testName}_${question.usmleStep}_${Date.now()}_${path.basename(imageFile.originalname)}`;
+        const imageFilePath = path.join(__dirname, "uploads", "testimages", imageFileName);
         if (question.image) {
-          const oldImagePath = path.join(
-            __dirname,
-            "uploads",
-            "testimages",
-            question.image
-          );
+          const oldImagePath = path.join(__dirname, "uploads", "testimages", question.image);
           if (fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);
           }
@@ -2047,53 +2409,25 @@ app.put(
       }
       if (req.files["imageTwo"]) {
         const imageTwoFile = req.files["imageTwo"][0];
-        const imageTwoFileName = `${test.testName}_${
-          test.usmleStep
-        }_${Date.now()}_${path.basename(imageTwoFile.originalname)}`;
-        const imageTwoFilePath = path.join(
-          __dirname,
-          "uploads",
-          "testimages",
-          imageTwoFileName
-        );
+        const imageTwoFileName = `${question.testName}_${question.usmleStep}_${Date.now()}_${path.basename(imageTwoFile.originalname)}`;
+        const imageTwoFilePath = path.join(__dirname, "uploads", "testimages", imageTwoFileName);
         if (question.imageTwo) {
-          const oldImageTwoPath = path.join(
-            __dirname,
-            "uploads",
-            "testimages",
-            question.imageTwo
-          );
+          const oldImageTwoPath = path.join(__dirname, "uploads", "testimages", question.imageTwo);
           if (fs.existsSync(oldImageTwoPath)) {
             fs.unlinkSync(oldImageTwoPath);
           }
         }
-
         fs.renameSync(imageTwoFile.path, imageTwoFilePath);
         question.imageTwo = imageTwoFileName;
       }
-      // if (req.files['video']) {
-      //   const videoFile = req.files['video'][0];
-      //   const videoFileName = `${test.testName}_${test.usmleStep}_${Date.now()}_${path.basename(videoFile.originalname)}`;
-      //   const videoFilePath = path.join(__dirname, 'uploads', 'testvideos', videoFileName);
-      //   if (question.video) {
-      //     const oldVideoPath = path.join(__dirname, 'uploads', 'testvideos', question.video);
-      //     if (fs.existsSync(oldVideoPath)) {
-      //       fs.unlinkSync(oldVideoPath);
-      //     }
-      //   }
-
-      //   fs.renameSync(videoFile.path, videoFilePath);
-      //   question.video = videoFileName;
-      // }
-      await test.save();
-
+      await question.save();
       res.status(200).json({
         status: "success",
         message: "Question updated successfully",
         data: question,
       });
     } catch (error) {
-      console.error(error);
+      console.error("Error updating question:", error);
       res.status(500).json({
         status: "error",
         message: "Error updating question",
@@ -2120,6 +2454,7 @@ app.delete("/delete-question/:testId/:questionId", async (req, res) => {
       return res.status(404).json({
         status: "error",
         message: "Question not found in the test",
+
       });
     }
     test.questions.splice(questionIndex, 1);
@@ -2138,7 +2473,43 @@ app.delete("/delete-question/:testId/:questionId", async (req, res) => {
   }
 });
 
-app.get("/get-question/:testId/:questionId", async (req, res) => {
+// app.get("/get-question/:testId/:questionId", async (req, res) => {
+//   try {
+//     const { testId, questionId } = req.params;
+//     const test = await Test.findById(testId);
+//     if (!test) {
+//       return res.status(404).json({
+//         error: true,
+//         success: false,
+//         message: "Test not found",
+//       });
+//     }
+//     const question = test.questions.find(
+//       (q) => q._id.toString() === questionId
+//     );
+//     if (!question) {
+//       return res.status(404).json({
+//         error: true,
+//         success: false,
+//         message: "Question not found in the test",
+//       });
+//     }
+//     res.status(200).json({
+//       status: "success",
+//       data: question,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       error: true,
+//       success: false,
+//       message: "Error fetching question details",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
+
+app.get('/get-question/:testId/:questionId', async (req, res) => {
   try {
     const { testId, questionId } = req.params;
     const test = await Test.findById(testId);
@@ -2146,21 +2517,22 @@ app.get("/get-question/:testId/:questionId", async (req, res) => {
       return res.status(404).json({
         error: true,
         success: false,
-        message: "Test not found",
+        message: 'Test not found',
       });
     }
-    const question = test.questions.find(
-      (q) => q._id.toString() === questionId
-    );
+
+    const question = await Question.findById(questionId);
     if (!question) {
       return res.status(404).json({
         error: true,
         success: false,
-        message: "Question not found in the test",
+        message: 'Question not found',
       });
     }
     res.status(200).json({
-      status: "success",
+      success: true,
+      error: false,
+      message: 'Question fetched',
       data: question,
     });
   } catch (error) {
@@ -2168,8 +2540,169 @@ app.get("/get-question/:testId/:questionId", async (req, res) => {
     res.status(500).json({
       error: true,
       success: false,
-      message: "Error fetching question details",
+      message: 'Error fetching question details',
       errorMessage: error.message,
+    });
+  }
+});
+
+// app.post('/comment-in-test/:testId/:questionId', async (req, res) => {
+//   const { testId, questionId } = req.params;
+//   const { commentText } = req.body;
+
+//   try {
+//     const test = await Test.findById(testId);
+//     if (!test) {
+//       return res.status(404).json({
+//         error: true,
+//         success: false,
+//         message: "Test not found",
+//       });
+//     }
+//     const question = test.questions.id(questionId);
+//     if (!question) {
+//       return res.status(404).json({
+//         error: true,
+//         success: false,
+//         message: "Question not found",
+//       });
+//     }
+//     question.comments.push({ commentText });
+//     await test.save();
+//     res.status(200).json({
+//       status: "success",
+//       success: true,
+//       message: "Comment added successfully",
+//       data: question,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       error: true,
+//       success: false,
+//       message: "Server Error",
+//       errorMessage: error.message,
+//     });
+//   }
+// });
+
+app.post('/comment-in-test/:questionId', async (req, res) => {
+  const { questionId } = req.params;
+  const { commentText } = req.body;
+
+  try {
+    const question = await Question.findById(questionId);
+        if (!question) {
+      return res.status(404).json({
+        error: true,
+        success: false,
+        message: "Question not found",
+      });
+    }
+    question.comments.push({ commentText });
+    await question.save();
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Comment added successfully",
+      data: question,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: true,
+      success: false,
+      message: "Server Error",
+      errorMessage: error.message,
+    });
+  }
+});
+
+
+app.get('/test-questions-with-comments', async (req, res) => {
+  try {
+    const questionsWithComments = await Question.find({
+      'comments': { $exists: true, $not: { $size: 0 } }
+    }, {
+      _id: 1,
+      question: 1,
+      optionOne: 1,
+      optionTwo: 1,
+      optionThree: 1,
+      optionFour: 1,
+      optionFive: 1,
+      optionSix: 1,
+      correctAnswer: 1,
+      questionExplanation: 1,
+      optionOneExplanation: 1,
+      optionTwoExplanation: 1,
+      optionThreeExplanation: 1,
+      optionFourExplanation: 1,
+      optionFiveExplanation: 1,
+      optionSixExplanation: 1,
+      image: 1,
+      imageTwo: 1,
+      comments: 1
+    }).populate('testId', 'testName'); 
+    if (!questionsWithComments || questionsWithComments.length === 0) {
+      return res.status(404).json({
+        error: true,
+        success: false,
+        message: "No questions with comments found",
+      });
+    }
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Questions with comments fetched successfully",
+      data: questionsWithComments,
+    });
+
+  } catch (error) {
+    console.error("Error fetching questions with comments:", error);
+    res.status(500).json({
+      error: true,
+      success: false,
+      message: "Error fetching questions with comments",
+      errorMessage: error.message,
+    });
+  }
+});
+
+
+app.delete('/delete-comment/:questionId/:commentId', async (req, res) => {
+  const { questionId, commentId } = req.params;
+
+  try {
+    const question = await Question.findById(questionId);
+    if (!question) {
+      return res.status(404).json({
+        error: true,
+        success: false,
+        message: "Question not found",
+      });
+    }
+    const commentIndex = question.comments.findIndex(comment => comment._id.toString() === commentId);
+    if (commentIndex === -1) {
+      return res.status(404).json({
+        error: true,
+        success: false,
+        message: "Comment not found",
+      });
+    }
+    question.comments.splice(commentIndex, 1);
+    await question.save();
+    res.status(200).json({
+      status: "success",
+      success: true,
+      message: "Comment deleted successfully",
+    });
+
+  } catch (error) {
+    console.error("Error deleting comment:", error);
+    res.status(500).json({
+      error: true,
+      success: false,
+      message: 'Server Error',
+      errorMessage: error.message
     });
   }
 });
